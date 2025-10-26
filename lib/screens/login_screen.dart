@@ -4,7 +4,7 @@ import '../utils/colors.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import 'signup_screen.dart';
-import 'dashboard_screen.dart';
+import 'main_navigation_screen.dart';
 import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,10 +31,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() async {
     // Validate input
-    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await _apiService.login(
-        email: _emailController.text.trim(), // ← TRIM is important!
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -51,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response['success']) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
         );
       }
     } catch (e) {
@@ -214,24 +215,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 32),
 
-              // Divider
-              Row(
-                children: [
-                  Expanded(child: Divider(color: AppColors.grey.withOpacity(0.3))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'or continue with',
-                      style: TextStyle(color: AppColors.grey.withOpacity(0.7)),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: AppColors.grey.withOpacity(0.3))),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Social Login Buttons
               Row(
                 children: [
                   Expanded(
@@ -255,8 +238,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -282,9 +263,7 @@ class _SocialButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
       ),
       child: Row(

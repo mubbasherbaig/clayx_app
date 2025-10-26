@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
+import '../services/api_service.dart';
 import 'qr_scanner_screen.dart';
 
 class AddPlantScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   final TextEditingController _plantNameController = TextEditingController();
   final TextEditingController _deviceIdController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final ApiService _apiService = ApiService();
 
   String _selectedPlantType = 'Aloe Vera';
   bool _isLoading = false;
@@ -26,6 +28,11 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     'Spider Plant',
     'Pothos',
     'Monstera',
+    'Succulent',
+    'Fern',
+    'Cactus',
+    'Herbs',
+    'Other',
   ];
 
   @override
@@ -36,17 +43,66 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     super.dispose();
   }
 
-  void _handleAddPlant() {
+  Future<void> _handleAddPlant() async {
+    // Validate inputs
+    if (_plantNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter plant name')),
+      );
+      return;
+    }
+
+    if (_deviceIdController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter device ID')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
-    // TODO: Implement actual add plant logic with API
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plant added successfully!')),
+    try {
+      // First, try to register the device
+      try {
+        await _apiService.registerDevice(_deviceIdController.text.trim());
+        print('Device registered successfully');
+      } catch (e) {
+        // Device might already be registered, that's okay
+        print('Device registration: $e');
+      }
+
+      // Now add the plant
+      final response = await _apiService.addPlant(
+        plantName: _plantNameController.text.trim(),
+        plantType: _selectedPlantType,
+        deviceId: _deviceIdController.text.trim(),
+        location: _locationController.text.trim().isEmpty
+            ? null
+            : _locationController.text.trim(),
       );
-      Navigator.pop(context);
-    });
+
+      setState(() => _isLoading = false);
+
+      if (response['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Plant added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true); // Return true to indicate success
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -82,6 +138,14 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   color: AppColors.black,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Connect your ESP32 device and name your plant',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.grey.withOpacity(0.8),
+                ),
+              ),
 
               const SizedBox(height: 32),
 
@@ -107,7 +171,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               // Plant Name Field
               CustomTextField(
                 label: 'Plant Name',
-                hint: 'E.g. tom hardy',
+                hint: 'E.g. Tom Hardy, My Aloe',
                 controller: _plantNameController,
               ),
 
@@ -157,12 +221,12 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
               const SizedBox(height: 20),
 
-              // Device ID Field
+              // Device ID Field with QR Scanner
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Device Id',
+                    'Device ID',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -173,7 +237,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   TextField(
                     controller: _deviceIdController,
                     decoration: InputDecoration(
-                      hintText: 'Enter device id or scan QR code',
+                      hintText: 'CLAYX_ESP001',
                       hintStyle: TextStyle(
                         color: AppColors.grey.withOpacity(0.5),
                         fontSize: 13,
@@ -222,6 +286,14 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter the device ID from your ESP32 or scan QR code',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.grey.withOpacity(0.7),
+                    ),
+                  ),
                 ],
               ),
 
@@ -229,35 +301,38 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
               // Location Field
               CustomTextField(
-                label: 'Location',
-                hint: 'E.g. living Room',
+                label: 'Location (Optional)',
+                hint: 'E.g. Living Room, Balcony',
                 controller: _locationController,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
-              // Add Photo Button
-              OutlinedButton(
-                onPressed: () {
-                  // TODO: Implement image picker
-                },
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Info Box
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primaryGreen.withOpacity(0.3),
                   ),
-                  side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.camera_alt_outlined, color: AppColors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Add Photo (optional)',
-                      style: TextStyle(
-                        color: AppColors.grey,
-                        fontWeight: FontWeight.w500,
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.primaryGreen,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Make sure your ESP32 device is powered on and connected to WiFi',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.primaryGreen,
+                        ),
                       ),
                     ),
                   ],
