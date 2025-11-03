@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../services/websocket_service.dart';
 import '../utils/colors.dart';
 import '../services/api_service.dart';
@@ -31,30 +32,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadData();
-    _connectWebSocket();
-    _setupWebSocketListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectWebSocket();
+    });
+    _testBackendConnection();
   }
 
   @override
   void dispose() {
-    _sensorSubscription?.cancel();  // NEW
-    _deviceStatusSubscription?.cancel();  // NEW
+    _sensorSubscription?.cancel(); // NEW
+    _deviceStatusSubscription?.cancel(); // NEW
     super.dispose();
   }
 
-  Future<void> _connectWebSocket() async {
-    await _wsService.connect();
+  Future<void> _testBackendConnection() async {
+    try {
+      print('[TEST] Testing backend connection...');
+      final response = await http.get(
+        Uri.parse('https://clayx-backend.onrender.com'),
+      ).timeout(const Duration(seconds: 10));
 
-    // Wait a bit for connection to establish
-    await Future.delayed(const Duration(milliseconds: 500));
+      print('[TEST] Backend status: ${response.statusCode}');
+      print('[TEST] Backend reachable: YES');
+    } catch (e) {
+      print('[TEST] Backend reachable: NO - Error: $e');
+    }
+  }
+
+  Future<void> _connectWebSocket() async {
+    print('[SCREEN] ========= Connecting WebSocket =========');
+
+    await _wsService.connect();
+    print('[SCREEN] WebSocket connect() completed');
 
     // Listen for connection status
     _connectionSubscription = _wsService.connectionStream.listen((connected) {
+      print('[SCREEN] Connection status changed: $connected');
       if (mounted) {
         setState(() => _isWsConnected = connected);
 
-        // When connected, join device rooms
         if (connected && _plants.isNotEmpty) {
+          print('[SCREEN] Connected! Joining device rooms...');
           _joinDeviceRooms();
         }
       }
@@ -76,11 +94,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _joinDeviceRooms() async {
-    final deviceIds = _plants
-        .where((p) => p['device_id_string'] != null)
-        .map((p) => p['device_id_string'] as String)
-        .toSet()
-        .toList();
+    final deviceIds =
+        _plants
+            .where((p) => p['device_id_string'] != null)
+            .map((p) => p['device_id_string'] as String)
+            .toSet()
+            .toList();
 
     if (deviceIds.isNotEmpty) {
       await _wsService.joinDeviceRooms(deviceIds);
@@ -100,7 +119,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     // Properly cast the data
-    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(sensorData);
+    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(
+      sensorData,
+    );
 
     // Find and update the plant
     setState(() {
@@ -109,7 +130,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         print('[Dashboard] Updating plant ${_plants[index]['plant_name']}');
 
         // Create a new map with proper typing
-        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(_plants[index]);
+        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(
+          _plants[index],
+        );
 
         _plants[index] = {
           ...currentPlant,
@@ -118,19 +141,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'soil_moisture': sensorMap['soil_moisture'],
           'water_level': sensorMap['water_level'],
           'light_level': sensorMap['light_level'],
+          'is_online': true,
+          'last_seen': DateTime.now().toIso8601String(),
         };
-
-        // Show a subtle notification
-        if (_selectedPlantIndex == index) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Sensor data updated'),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: AppColors.primaryGreen,
-            ),
-          );
-        }
       }
     });
   }
@@ -149,7 +162,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (lastSeen != null) {
             plant['last_seen'] = lastSeen;
           }
-          print('[Dashboard] Device $deviceId is now ${isOnline ? "ONLINE" : "OFFLINE"}');
+          print(
+            '[Dashboard] Device $deviceId is now ${isOnline ? "ONLINE" : "OFFLINE"}',
+          );
         }
       }
     });
@@ -216,7 +231,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final profileResponse = await _apiService.getProfile();
       if (profileResponse['success']) {
         setState(() {
-          _userName = profileResponse['data']['fullName']?.split(' ')[0] ?? 'User';
+          _userName =
+              profileResponse['data']['fullName']?.split(' ')[0] ?? 'User';
         });
       }
 
@@ -244,7 +260,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final profileResponse = await _apiService.getProfile();
       if (profileResponse['success']) {
         setState(() {
-          _userName = profileResponse['data']['fullName']?.split(' ')[0] ?? 'User';
+          _userName =
+              profileResponse['data']['fullName']?.split(' ')[0] ?? 'User';
         });
       }
 
@@ -253,6 +270,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (plantsResponse['success']) {
         setState(() {
           _plants = plantsResponse['data'] ?? [];
+
+          for (var plant in _plants) {
+            plant['is_online'] = false;
+          }
         });
 
         // Join device rooms after loading plants
@@ -282,28 +303,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-          onRefresh: _loadInitialData,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTopBar(),
-                _buildGreetingSection(),
-                const SizedBox(height: 24),
-                _buildYourPlantsSection(),
-                const SizedBox(height: 24),
-                _buildQuickActions(),
-                const SizedBox(height: 24),
-                _buildAchievements(),
-                const SizedBox(height: 100),
-              ],
-            ),
-          ),
-        ),
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: _loadInitialData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTopBar(),
+                        _buildGreetingSection(),
+                        const SizedBox(height: 24),
+                        _buildYourPlantsSection(),
+                        const SizedBox(height: 24),
+                        _buildQuickActions(),
+                        const SizedBox(height: 24),
+                        _buildAchievements(),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ),
       ),
     );
   }
@@ -348,9 +370,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _isWsConnected
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.red.withOpacity(0.1),
+                  color:
+                      _isWsConnected
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -447,10 +470,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           const Text(
             'Your plants are looking great today!',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.grey,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.grey),
           ),
           const SizedBox(height: 16),
           Row(
@@ -504,10 +524,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 16),
                 const Text(
                   'No plants yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -566,9 +583,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       setState(() => _selectedPlantIndex = index);
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primaryGreen : const Color(0xFFF0F0F0),
+                        color:
+                            isSelected
+                                ? AppColors.primaryGreen
+                                : const Color(0xFFF0F0F0),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -645,7 +668,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           width: 8,
                           height: 8,
                           decoration: BoxDecoration(
-                            color: plant['is_online'] == true ? Colors.green : Colors.grey,
+                            color:
+                                plant['is_online'] == true
+                                    ? Colors.green
+                                    : Colors.grey,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -654,7 +680,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           plant['is_online'] == true ? 'Online' : 'Offline',
                           style: TextStyle(
                             fontSize: 12,
-                            color: plant['is_online'] == true ? Colors.green : Colors.grey,
+                            color:
+                                plant['is_online'] == true
+                                    ? Colors.green
+                                    : Colors.grey,
                           ),
                         ),
                       ],
@@ -672,7 +701,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   icon: Icons.water_drop,
                   label: 'Water',
                   value: '${soilMoisture.toStringAsFixed(1)}%',
-                  color: soilMoisture < 30 ? Colors.red : AppColors.primaryGreen,
+                  color:
+                      soilMoisture < 30 ? Colors.red : AppColors.primaryGreen,
                   isWarning: soilMoisture < 30,
                 ),
               ),
@@ -739,7 +769,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-// Add this helper method
+  // Add this helper method
   String _getLightStatusFromValue(double lightLevel) {
     if (lightLevel == 0) return 'Dark';
     if (lightLevel > 1000) return 'Bright';
@@ -770,16 +800,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.grey,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppColors.grey),
               ),
               const Spacer(),
               if (isWarning)
                 const Icon(Icons.warning, color: Colors.red, size: 16)
               else if (showCheck)
-                const Icon(Icons.check_circle, color: AppColors.primaryGreen, size: 16),
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.primaryGreen,
+                  size: 16,
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -872,10 +903,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.grey,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppColors.grey),
           ),
         ],
       ),
@@ -998,10 +1026,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Text(
                           'Next Reward: 1000 pts',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.grey,
-                          ),
+                          style: TextStyle(fontSize: 12, color: AppColors.grey),
                         ),
                         Text(
                           '75%',

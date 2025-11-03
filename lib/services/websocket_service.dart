@@ -1,16 +1,16 @@
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
+import 'token_storage_service.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
   WebSocketService._internal();
+
   final _connectionController = StreamController<bool>.broadcast();
   IO.Socket? _socket;
-  final storage = const FlutterSecureStorage();
+  final _tokenStorage = TokenStorageService();
 
-  // Stream controllers for real-time updates
   final StreamController<Map<String, dynamic>> _sensorDataController =
   StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _deviceStatusController =
@@ -18,9 +18,12 @@ class WebSocketService {
   final StreamController<Map<String, dynamic>> _commandStatusController =
   StreamController<Map<String, dynamic>>.broadcast();
 
-  Stream<Map<String, dynamic>> get sensorDataStream => _sensorDataController.stream;
-  Stream<Map<String, dynamic>> get deviceStatusStream => _deviceStatusController.stream;
-  Stream<Map<String, dynamic>> get commandStatusStream => _commandStatusController.stream;
+  Stream<Map<String, dynamic>> get sensorDataStream =>
+      _sensorDataController.stream;
+  Stream<Map<String, dynamic>> get deviceStatusStream =>
+      _deviceStatusController.stream;
+  Stream<Map<String, dynamic>> get commandStatusStream =>
+      _commandStatusController.stream;
   Stream<bool> get connectionStream => _connectionController.stream;
 
   bool get isConnected => _socket?.connected ?? false;
@@ -37,90 +40,86 @@ class WebSocketService {
     }
   }
 
-  void _setupListeners() {
-    _socket!.on('sensor_data_response', (data) {
-      print('[WS] Sensor data response: $data');
-      _sensorDataController.add(Map<String, dynamic>.from(data));
-    });
-  }
-
   Future<void> connect() async {
+    print('[WS] ========= CONNECT CALLED =========');
+
     if (_socket != null && _socket!.connected) {
       print('[WS] Already connected');
       return;
     }
 
     try {
-      final token = await storage.read(key: 'auth_token');
+      final token = await _tokenStorage.getToken();
+
+      if (token != null) {
+        print('[WS] Token retrieved: YES (${token.substring(0, 20)}...)');
+      } else {
+        print('[WS] Token retrieved: NO');
+      }
+
       if (token == null) {
-        print('[WS] No auth token found');
+        print('[WS] ❌ No auth token found - CANNOT CONNECT');
         return;
       }
 
-      // CHANGE THIS URL TO YOUR BACKEND URL
-      const serverUrl = 'https://clayx-backend.onrender.com';  // or http:// for dev
-
-      print('[WS] Connecting to $serverUrl...');
+      const serverUrl = 'https://clayx-backend.onrender.com';
+      print('[WS] Attempting connection to: $serverUrl');
 
       _socket = IO.io(serverUrl, <String, dynamic>{
         'transports': ['websocket'],
         'autoConnect': false,
         'auth': {'token': token},
+        'reconnection': true,
+        'reconnectionAttempts': 5,
+        'reconnectionDelay': 1000,
       });
 
+      print('[WS] Socket created, calling connect()...');
       _socket!.connect();
 
       _socket!.onConnect((_) {
-        print('[WS] Connected successfully');
+        print('[WS] ✅ Connected successfully');
         _connectionController.add(true);
       });
 
       _socket!.onDisconnect((_) {
-        print('[WS] Disconnected');
+        print('[WS] ❌ Disconnected');
         _connectionController.add(false);
       });
 
       _socket!.onConnectError((data) {
-        print('[WS] Connection error: $data');
+        print('[WS] ❌ Connection error: $data');
+        _connectionController.add(false);
       });
 
       _socket!.onError((data) {
-        print('[WS] Error: $data');
+        print('[WS] ❌ Error: $data');
       });
 
-      // Listen for sensor updates
       _socket!.on('sensor_update', (data) {
         print('[WS] Sensor update received: $data');
         _sensorDataController.add(Map<String, dynamic>.from(data));
       });
 
-      // Listen for device status changes
       _socket!.on('device_status', (data) {
         print('[WS] Device status: $data');
         _deviceStatusController.add(Map<String, dynamic>.from(data));
       });
 
-      // Listen for command status updates
       _socket!.on('command_status', (data) {
         print('[WS] Command status: $data');
         _commandStatusController.add(Map<String, dynamic>.from(data));
       });
 
-      // Listen for command sent confirmation
       _socket!.on('command_sent', (data) {
         print('[WS] Command sent: $data');
         _commandStatusController.add(Map<String, dynamic>.from(data));
       });
 
-      // Listen for command errors
       _socket!.on('command_error', (data) {
         print('[WS] Command error: $data');
-        _commandStatusController.add({
-          'error': true,
-          'message': data['error']
-        });
+        _commandStatusController.add({'error': true, 'message': data['error']});
       });
-
     } catch (e) {
       print('[WS] Connection failed: $e');
     }
@@ -135,7 +134,6 @@ class WebSocketService {
     }
   }
 
-  // Send command to device
   void sendCommand(String deviceId, String commandType, String commandValue) {
     if (_socket == null || !_socket!.connected) {
       print('[WS] Not connected, cannot send command');
@@ -150,7 +148,6 @@ class WebSocketService {
     });
   }
 
-  // Request latest sensor data for a plant
   void getSensorData(int plantId) {
     if (_socket == null || !_socket!.connected) {
       print('[WS] Not connected, cannot request sensor data');

@@ -1,57 +1,39 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../services/websocket_service.dart';
 import '../utils/colors.dart';
-import 'my_plants_screen.dart';
 
 class PlantDetailScreen extends StatefulWidget {
-  final Plant plant;
+  final Map<String, dynamic> plant;
 
   const PlantDetailScreen({super.key, required this.plant});
 
   @override
-  State<PlantDetailScreen> createState() => _PlantDetailScreenState();
+  State<PlantDetailScreen> createState() => _PlantDetailEnhancedScreenState();
 }
 
-class _PlantDetailScreenState extends State<PlantDetailScreen> {
-  int _selectedTab = 0;
+class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
   final WebSocketService _wsService = WebSocketService();
-  StreamSubscription? _sensorSubscription;
-  final List<TimelineEvent> _timeline = [
-    TimelineEvent(
-      title: 'Scheduled / 7hr:20min/day',
-      time: 'Jan 8, 7:30 AM',
-      icon: Icons.schedule,
-      color: AppColors.primaryGreen,
-    ),
-    TimelineEvent(
-      title: 'Light watered',
-      time: 'Jan 8, 5:30 AM',
-      icon: Icons.water_drop,
-      color: Colors.blue,
-    ),
-    TimelineEvent(
-      title: 'Fertilizer test in 3 days',
-      time: 'Jan 10',
-      icon: Icons.science_outlined,
-      color: Colors.orange,
-    ),
-    TimelineEvent(
-      title: 'First watered on emergency',
-      time: 'Jan 8, 2:30 AM',
-      icon: Icons.warning_amber,
-      color: Colors.red,
-    ),
-  ];
+  StreamSubscription<Map<String, dynamic>>? _sensorSubscription;
+  late Map<String, dynamic> _currentPlant;
+
   @override
   void initState() {
     super.initState();
+    _currentPlant = Map<String, dynamic>.from(widget.plant);
+    _setupSensorListener();
+  }
+
+  void _setupSensorListener() {
     _sensorSubscription = _wsService.sensorDataStream.listen((data) {
-      if (data['plantId'] == widget.plant.id) {
-        // Update plant data in real-time
+      if (data['plantId'] == _currentPlant['id']) {
         setState(() {
-          // Update your plant metrics
+          final sensorData = Map<String, dynamic>.from(data['data']);
+          _currentPlant['temperature'] = sensorData['temperature'];
+          _currentPlant['humidity'] = sensorData['humidity'];
+          _currentPlant['soil_moisture'] = sensorData['soil_moisture'];
+          _currentPlant['water_level'] = sensorData['soil_moisture'];
+          _currentPlant['light_level'] = sensorData['light_level'];
         });
       }
     });
@@ -62,12 +44,39 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     _sensorSubscription?.cancel();
     super.dispose();
   }
+
+  double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  int _calculateHealthPercentage() {
+    final soilMoisture = _toDouble(_currentPlant['soil_moisture']);
+    final temperature = _toDouble(_currentPlant['temperature']);
+
+    int health = 100;
+    if (soilMoisture < 30) health -= 20;
+    if (temperature < 15 || temperature > 35) health -= 15;
+
+    return health.clamp(0, 100);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final waterLevel = _toDouble(_currentPlant['soil_moisture']);
+    final soilMoisture = _toDouble(_currentPlant['soil_moisture']);
+    final temperature = _toDouble(_currentPlant['temperature']);
+    final lightLevel = _toDouble(_currentPlant['light_level'] ?? '0');
+    final sunlightHours = (lightLevel / 1000 * 12).clamp(0, 12);
+    final healthPercentage = _calculateHealthPercentage();
+
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
@@ -77,102 +86,160 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.plant.name,
+              _currentPlant['plant_name'] ?? 'Unknown',
               style: const TextStyle(
                 color: AppColors.black,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, color: AppColors.black),
+            const SizedBox(width: 8),
+            const Text('🌱', style: TextStyle(fontSize: 18)),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close, color: AppColors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Plant Image
+            // Plant Image with Health Indicator
             Container(
               width: double.infinity,
-              height: 200,
-              color: AppColors.white,
-              child: Center(
-                child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    widget.plant.image,
-                    size: 80,
-                    color: AppColors.primaryGreen,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Tabs
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
+              padding: const EdgeInsets.all(32),
+              color: Colors.white,
+              child: Column(
                 children: [
-                  _TabButton(
-                    text: "It's Healthy",
-                  isSelected: _selectedTab == 0,
-                    onTap: () => setState(() => _selectedTab = 0),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 180,
+                        height: 180,
+                        child: CircularProgressIndicator(
+                          value: healthPercentage / 100,
+                          strokeWidth: 8,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            healthPercentage > 70 ? AppColors.primaryGreen : Colors.orange,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/plants/aloe_vera.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.local_florist,
+                                size: 80,
+                                color: AppColors.primaryGreen,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            '$healthPercentage% Health',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: healthPercentage > 70 ? AppColors.primaryGreen : Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primaryGreen,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        healthPercentage > 70 ? 'Healthy' : 'Needs Care',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.black,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // Plant Metrics Section
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Plant Metrics',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Metrics Grid
                   Row(
                     children: [
                       Expanded(
                         child: _MetricCard(
                           icon: Icons.water_drop,
-                          label: 'Water level',
-                          value: '${widget.plant.waterLevel}',
-                          color: Colors.blue,
+                          iconColor: Colors.blue,
+                          label: 'Water Level',
+                          value: '${waterLevel.toStringAsFixed(0)}',
+                          unit: '%',
+                          status: waterLevel > 50 ? 'Good' : 'Low',
+
+                          statusColor: waterLevel > 50 ? AppColors.primaryGreen : Colors.orange,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _MetricCard(
-                          icon: Icons.light_mode,
+                          icon: Icons.wb_sunny,
+                          iconColor: Colors.amber,
                           label: 'Sunlight',
-                          value: '6.3',
-                          color: Colors.amber,
-                          unit: 'hrs',
+                          value: sunlightHours.toStringAsFixed(1),
+                          unit: 'hrs/day',
+                          status: 'Good',
+                          statusColor: AppColors.primaryGreen,
                         ),
                       ),
                     ],
@@ -183,20 +250,24 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                       Expanded(
                         child: _MetricCard(
                           icon: Icons.opacity,
+                          iconColor: Colors.brown,
                           label: 'Soil Moisture',
-                          value: '25',
-                          color: Colors.brown,
+                          value: '${soilMoisture.toStringAsFixed(0)}',
                           unit: '%',
+                          status: soilMoisture > 40 ? 'Good' : 'Low',
+                          statusColor: soilMoisture > 40 ? AppColors.primaryGreen : Colors.orange,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _MetricCard(
                           icon: Icons.thermostat,
+                          iconColor: Colors.red,
                           label: 'Temperature',
-                          value: '${widget.plant.temperature}',
-                          color: Colors.red,
+                          value: '${temperature.toStringAsFixed(0)}',
                           unit: '°C',
+                          status: 'Good',
+                          statusColor: AppColors.primaryGreen,
                         ),
                       ),
                     ],
@@ -209,22 +280,44 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
 
             // Care Timeline Section
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Care Timeline',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Timeline List
-                  ..._timeline.map((event) => _TimelineItem(event: event)),
+                  _TimelineItem(
+                    icon: Icons.water_drop,
+                    iconColor: Colors.blue,
+                    title: 'Watered at 7 PM yesterday',
+                    subtitle: 'Sep 25, 7:00 PM',
+                  ),
+                  _TimelineItem(
+                    icon: Icons.wb_sunny,
+                    iconColor: Colors.amber,
+                    title: 'Light boost applied',
+                    subtitle: 'Sep 24, 2:30 PM',
+                  ),
+                  _TimelineItem(
+                    icon: Icons.science_outlined,
+                    iconColor: AppColors.primaryGreen,
+                    title: 'Fertilizer due in 3 days',
+                    subtitle: 'Sep 29',
+                    showArrow: true,
+                  ),
+                  _TimelineItem(
+                    icon: Icons.warning_amber,
+                    iconColor: Colors.orange,
+                    title: 'Soil moisture dropping',
+                    subtitle: 'Sep 25, 8:15 AM',
+                  ),
                 ],
               ),
             ),
@@ -236,12 +329,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       bottomNavigationBar: _buildBottomButtons(),
     );
   }
-
+  bool _isPumpOn = false;
   Widget _buildBottomButtons() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -250,125 +343,113 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () {
-                // Send pump command via WebSocket
-                final deviceId = widget.plant.deviceId;  // Make sure Plant model has deviceId
 
-                _wsService.sendCommand(deviceId, 'pump', 'on');
+    child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              final deviceId = _currentPlant['device_id_string']?.toString() ??
+                  _currentPlant['device_id']?.toString() ?? '';
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Watering command sent!'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 2),
+              setState(() {
+                _isPumpOn = !_isPumpOn; // Toggle state
+              });
+
+              final command = _isPumpOn ? 'on' : 'off';
+              _wsService.sendCommand(deviceId, 'pump', command);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isPumpOn ? 'Watering started!' : 'Watering stopped!'),
+                  backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              elevation: 2,
+              shadowColor: Colors.black26,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isPumpOn ? Icons.water_drop : Icons.water_drop_outlined,
+                  size: 24,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Water Now',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              child: const Text(
-                'Water now',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.white,
-                ),
-              ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () {
-              // Edit action
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
-            ),
-            child: const Icon(Icons.edit, color: AppColors.grey),
-          ),
-          const SizedBox(width: 12),
-          OutlinedButton(
-            onPressed: () {
-              // Settings action
-            },
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
-            ),
-            child: const Icon(Icons.more_horiz, color: AppColors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabButton extends StatelessWidget {
-  final String text;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _TabButton({
-    required this.text,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryGreen : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primaryGreen : AppColors.lightGrey,
           ),
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isSelected ? AppColors.white : AppColors.grey,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+
+        const SizedBox(width: 12),
+
+        // ────── Fertilize (unchanged) ──────
+        Expanded(
+          child: _GrayActionButton(
+            icon: Icons.science_outlined,
+            label: 'Fertilize',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Fertilize reminder set!')),
+              );
+            },
           ),
         ),
-      ),
+
+        const SizedBox(width: 12),
+
+        // ────── Light Boost (unchanged) ──────
+        Expanded(
+          child: _GrayActionButton(
+            icon: Icons.wb_sunny,
+            label: 'Light Boost',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Light boost activated!')),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
     );
   }
 }
 
 class _MetricCard extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String label;
   final String value;
-  final Color color;
-  final String? unit;
+  final String unit;
+  final String status;
+  final Color statusColor;
 
   const _MetricCard({
     required this.icon,
+    required this.iconColor,
     required this.label,
     required this.value,
-    required this.color,
-    this.unit,
+    required this.unit,
+    required this.status,
+    required this.statusColor,
   });
 
   @override
@@ -376,22 +457,24 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.lightGrey),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: iconColor, size: 20),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.grey.withOpacity(0.8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.grey.withOpacity(0.8),
+                  ),
                 ),
               ),
             ],
@@ -403,24 +486,38 @@ class _MetricCard extends StatelessWidget {
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 28,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppColors.black,
                 ),
               ),
-              if (unit != null) ...[
-                const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    unit!,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.grey.withOpacity(0.8),
-                    ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  unit,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.grey.withOpacity(0.8),
                   ),
                 ),
-              ],
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -429,51 +526,43 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class TimelineEvent {
-  final String title;
-  final String time;
-  final IconData icon;
-  final Color color;
-
-  TimelineEvent({
-    required this.title,
-    required this.time,
-    required this.icon,
-    required this.color,
-  });
-}
-
 class _TimelineItem extends StatelessWidget {
-  final TimelineEvent event;
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final bool showArrow;
 
-  const _TimelineItem({required this.event});
+  const _TimelineItem({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    this.showArrow = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon Circle
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: event.color.withOpacity(0.1),
+              color: iconColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(event.icon, color: event.color, size: 20),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
-
-          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.title,
+                  title,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -482,7 +571,7 @@ class _TimelineItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  event.time,
+                  subtitle,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.grey.withOpacity(0.8),
@@ -491,10 +580,61 @@ class _TimelineItem extends StatelessWidget {
               ],
             ),
           ),
-
-          // Chevron
-          Icon(Icons.chevron_right, color: AppColors.grey.withOpacity(0.5)),
+          if (showArrow)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.notifications, color: Colors.white, size: 16),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _GrayActionButton extends StatelessWidget {
+  const _GrayActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.grey[100],
+      borderRadius: BorderRadius.circular(12),
+      elevation: 1,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.grey[700], size: 24),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[800],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

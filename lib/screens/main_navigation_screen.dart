@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import 'dashboard_screen.dart';
+import 'notifications_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'profile_screen.dart';
 import 'control_screen.dart';
@@ -19,7 +20,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const DashboardScreen(),
     const PlaceholderScreen(title: 'Scan', icon: Icons.qr_code_scanner),
     const ControlScreen(),
-    const PlaceholderScreen(title: 'Notifications', icon: Icons.notifications_outlined),
+    const NotificationsScreen(),
     const ProfileScreen(),
     const PlaceholderScreen(title: 'Rewards', icon: Icons.emoji_events_outlined),
   ];

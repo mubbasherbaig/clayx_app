@@ -1,4 +1,6 @@
+import 'package:clayx_smart_planter/screens/plant_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'dart:async';
 import '../services/websocket_service.dart';
 import '../services/api_service.dart';
@@ -28,8 +30,10 @@ class _ControlScreenState extends State<ControlScreen> {
   void initState() {
     super.initState();
     _loadPlants();
-    _setupListeners();
-    _connectWebSocket();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectWebSocket();
+    });
+    _testBackendConnection();
   }
 
   @override
@@ -39,6 +43,20 @@ class _ControlScreenState extends State<ControlScreen> {
     _deviceStatusSubscription?.cancel();
     _connectionSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _testBackendConnection() async {
+    try {
+      print('[TEST] Testing backend connection...');
+      final response = await http
+          .get(Uri.parse('https://clayx-backend.onrender.com'))
+          .timeout(const Duration(seconds: 10));
+
+      print('[TEST] Backend status: ${response.statusCode}');
+      print('[TEST] Backend reachable: YES');
+    } catch (e) {
+      print('[TEST] Backend reachable: NO - Error: $e');
+    }
   }
 
   double _toDouble(dynamic value) {
@@ -91,13 +109,22 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   Future<void> _connectWebSocket() async {
+    print('[SCREEN] ========= Connecting WebSocket =========');
+
+    await _wsService.connect();
+    print('[SCREEN] WebSocket connect() completed');
+
+    await Future.delayed(const Duration(seconds: 2));
+    print('[SCREEN] Waited 2 seconds');
+
     // Listen for connection status
     _connectionSubscription = _wsService.connectionStream.listen((connected) {
+      print('[SCREEN] Connection status changed: $connected');
       if (mounted) {
         setState(() => _isWsConnected = connected);
 
-        // When connected, join device rooms
         if (connected && _plants.isNotEmpty) {
+          print('[SCREEN] Connected! Joining device rooms...');
           _joinDeviceRooms();
         }
       }
@@ -119,11 +146,14 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   Future<void> _joinDeviceRooms() async {
-    final deviceIds = _plants
-        .where((p) => p['device_id_string'] != null || p['device_id'] != null)
-        .map((p) => (p['device_id_string'] ?? p['device_id']).toString())
-        .toSet()
-        .toList();
+    final deviceIds =
+        _plants
+            .where(
+              (p) => p['device_id_string'] != null || p['device_id'] != null,
+            )
+            .map((p) => (p['device_id_string'] ?? p['device_id']).toString())
+            .toSet()
+            .toList();
 
     if (deviceIds.isNotEmpty) {
       await _wsService.joinDeviceRooms(deviceIds);
@@ -140,14 +170,18 @@ class _ControlScreenState extends State<ControlScreen> {
     if (plantId == null || sensorData == null) return;
 
     // Properly cast the data
-    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(sensorData);
+    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(
+      sensorData,
+    );
 
     setState(() {
       final index = _plants.indexWhere((p) => p['id'] == plantId);
       if (index != -1) {
         print('[CONTROL] Updating plant ${_plants[index]['plant_name']}');
 
-        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(_plants[index]);
+        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(
+          _plants[index],
+        );
 
         _plants[index] = {
           ...currentPlant,
@@ -156,6 +190,8 @@ class _ControlScreenState extends State<ControlScreen> {
           'soil_moisture': sensorMap['soil_moisture'],
           'water_level': sensorMap['water_level'],
           'light_level': sensorMap['light_level'],
+          'is_online': true,
+          'last_seen': DateTime.now().toIso8601String(),
         };
       }
     });
@@ -170,7 +206,8 @@ class _ControlScreenState extends State<ControlScreen> {
 
     setState(() {
       for (var plant in _plants) {
-        final plantDeviceId = plant['device_id_string']?.toString() ??
+        final plantDeviceId =
+            plant['device_id_string']?.toString() ??
             plant['device_id']?.toString();
 
         if (plantDeviceId == deviceId) {
@@ -178,7 +215,9 @@ class _ControlScreenState extends State<ControlScreen> {
           if (lastSeen != null) {
             plant['last_seen'] = lastSeen;
           }
-          print('[CONTROL] Device $deviceId is now ${isOnline ? "ONLINE" : "OFFLINE"}');
+          print(
+            '[CONTROL] Device $deviceId is now ${isOnline ? "ONLINE" : "OFFLINE"}',
+          );
         }
       }
     });
@@ -192,6 +231,10 @@ class _ControlScreenState extends State<ControlScreen> {
       if (response['success']) {
         setState(() {
           _plants = response['data'] ?? [];
+
+          for (var plant in _plants) {
+            plant['is_online'] = false;
+          }
         });
 
         // Join device rooms after loading plants
@@ -209,14 +252,12 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   void _sendPumpCommand(String deviceId, bool turnOn) {
-    print('[CONTROL] Sending pump ${turnOn ? "ON" : "OFF"} to device: $deviceId');
+    print(
+      '[CONTROL] Sending pump ${turnOn ? "ON" : "OFF"} to device: $deviceId',
+    );
 
     // ✅ FIXED: Actually send the command via WebSocket
-    _wsService.sendCommand(
-      deviceId,
-      'pump',
-      turnOn ? 'on' : 'off',
-    );
+    _wsService.sendCommand(deviceId, 'pump', turnOn ? 'on' : 'off');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -248,9 +289,10 @@ class _ControlScreenState extends State<ControlScreen> {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _isWsConnected
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.red.withOpacity(0.1),
+              color:
+                  _isWsConnected
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -275,20 +317,21 @@ class _ControlScreenState extends State<ControlScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _plants.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-        onRefresh: _loadPlants,
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: _plants.length,
-          itemBuilder: (context, index) {
-            return _buildPlantControlCard(_plants[index]);
-          },
-        ),
-      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _plants.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                onRefresh: _loadPlants,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _plants.length,
+                  itemBuilder: (context, index) {
+                    return _buildPlantControlCard(_plants[index]);
+                  },
+                ),
+              ),
     );
   }
 
@@ -305,17 +348,12 @@ class _ControlScreenState extends State<ControlScreen> {
           const SizedBox(height: 16),
           const Text(
             'No plants found',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             'Add a plant to control devices',
-            style: TextStyle(
-              color: AppColors.grey.withOpacity(0.8),
-            ),
+            style: TextStyle(color: AppColors.grey.withOpacity(0.8)),
           ),
         ],
       ),
@@ -329,188 +367,200 @@ class _ControlScreenState extends State<ControlScreen> {
     final lastSeen = plant['last_seen'];
 
     // ✅ FIXED: Get deviceId properly (try both fields)
-    final deviceId = plant['device_id_string']?.toString() ??
-        plant['device_id']?.toString() ?? '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    final deviceId =
+        plant['device_id_string']?.toString() ??
+        plant['device_id']?.toString() ??
+        '';
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlantDetailScreen(plant: plant),
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Top Row: Plant info + Switch
-          Row(
-            children: [
-              // Plant Image with Green Dot
-              Stack(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Top Row: Plant info + Switch
+            Row(
+              children: [
+                // Plant Image with Green Dot
+                Stack(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.local_florist,
+                        color: AppColors.primaryGreen,
+                        size: 32,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.local_florist,
-                      color: AppColors.primaryGreen,
-                      size: 32,
-                    ),
-                  ),
-                  if (isOnline)
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                    if (isOnline)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 16),
+                  ],
+                ),
+                const SizedBox(width: 16),
 
-              // Plant Name and Status
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // Plant Name and Status
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        plant['plant_name'] ?? 'Unknown',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isOnline ? 'Online' : 'Offline',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isOnline ? Colors.green : Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Water Switch with Label
+                Column(
                   children: [
-                    Text(
-                      plant['plant_name'] ?? 'Unknown',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.black,
+                    Transform.scale(
+                      scale: 1.2,
+                      child: Switch(
+                        value: _pumpStates[deviceId] ?? false,
+                        onChanged:
+                            isOnline && deviceId.isNotEmpty
+                                ? (bool value) {
+                                  // ✅ FIXED: Update state AND send command
+                                  setState(() {
+                                    _pumpStates[deviceId] = value;
+                                  });
+
+                                  // ✅ FIXED: Actually send the command
+                                  _sendPumpCommand(deviceId, value);
+                                }
+                                : null,
+                        activeColor: Colors.white,
+                        activeTrackColor: AppColors.primaryGreen,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: AppColors.grey.withOpacity(0.3),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isOnline ? 'Online' : 'Offline',
+                    const Text(
+                      'Water',
                       style: TextStyle(
                         fontSize: 14,
-                        color: isOnline ? Colors.green : Colors.grey,
+                        color: AppColors.black,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
 
-              // Water Switch with Label
-              Column(
-                children: [
-                  Transform.scale(
-                    scale: 1.2,
-                    child: Switch(
-                      value: _pumpStates[deviceId] ?? false,
-                      onChanged: isOnline && deviceId.isNotEmpty
-                          ? (bool value) {
-                        // ✅ FIXED: Update state AND send command
-                        setState(() {
-                          _pumpStates[deviceId] = value;
-                        });
+            const SizedBox(height: 24),
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const SizedBox(height: 16),
 
-                        // ✅ FIXED: Actually send the command
-                        _sendPumpCommand(deviceId, value);
-                      }
-                          : null,
-                      activeColor: Colors.white,
-                      activeTrackColor: AppColors.primaryGreen,
-                      inactiveThumbColor: Colors.white,
-                      inactiveTrackColor: AppColors.grey.withOpacity(0.3),
+            // Bottom Row: Controls and Progress
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Control Icons
+                _buildIconMetric(Icons.wb_sunny, 'Light'),
+                const SizedBox(width: 20),
+                _buildIconMetric(Icons.water_drop, 'Humidity'),
+
+                const Spacer(),
+
+                // Time and Progress Bar
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _getTimeAgo(lastSeen),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.grey,
+                      ),
                     ),
-                  ),
-                  const Text(
-                    'Water',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.black,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
-          const SizedBox(height: 16),
-
-          // Bottom Row: Controls and Progress
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Control Icons
-              _buildIconMetric(Icons.wb_sunny, 'Light'),
-              const SizedBox(width: 20),
-              _buildIconMetric(Icons.water_drop, 'Humidity'),
-
-              const Spacer(),
-
-              // Time and Progress Bar
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _getTimeAgo(lastSeen),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: SizedBox(
-                          width: 100,
-                          height: 8,
-                          child: LinearProgressIndicator(
-                            value: soilMoisture / 100,
-                            backgroundColor: const Color(0xFFE5E7EB),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              soilMoisture > 60
-                                  ? AppColors.primaryGreen
-                                  : soilMoisture > 30
-                                  ? Colors.orange
-                                  : Colors.red,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: SizedBox(
+                            width: 100,
+                            height: 8,
+                            child: LinearProgressIndicator(
+                              value: soilMoisture / 100,
+                              backgroundColor: const Color(0xFFE5E7EB),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                soilMoisture > 60
+                                    ? AppColors.primaryGreen
+                                    : soilMoisture > 30
+                                    ? Colors.orange
+                                    : Colors.red,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${soilMoisture.toStringAsFixed(0)} %',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.black,
+                        const SizedBox(width: 8),
+                        Text(
+                          '${soilMoisture.toStringAsFixed(0)} %',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.black,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -522,10 +572,7 @@ class _ControlScreenState extends State<ControlScreen> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.grey,
-          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.grey),
         ),
       ],
     );
