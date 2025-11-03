@@ -196,6 +196,7 @@ class Plant {
   final String light;
   final int temperature;
   final IconData image;
+  final String deviceId;
 
   Plant({
     required this.id,
@@ -206,6 +207,7 @@ class Plant {
     required this.light,
     required this.temperature,
     required this.image,
+    required this.deviceId,
   });
 
   factory Plant.fromJson(Map<String, dynamic> json) {
@@ -218,6 +220,7 @@ class Plant {
       light: json['light_level']?.toString() ?? 'Unknown',
       temperature: _toInt(json['temperature']),
       image: Icons.local_florist,
+      deviceId: json['device_id']?.toString() ?? '',
     );
   }
 

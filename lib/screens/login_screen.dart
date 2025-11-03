@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
 
               // Logo and Title
               Center(
@@ -86,17 +86,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.eco,
-                        size: 40,
-                        color: AppColors.primaryGreen,
+                      child: ClipOval(
+                        child: Padding(
+                          padding: const EdgeInsets.all(0), // Adjust padding as needed
+                          child: Image.asset(
+                            'assets/images/icons/nobg_logo.png', // Your custom icon path
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 6),
                     const Text(
                       'Smart Planter',
                       style: TextStyle(
@@ -105,19 +104,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.black,
                       ),
                     ),
+                    const SizedBox(height: 40),
+                    const Text(
+                      'Welcome Back',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.black,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Welcome Text
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.black,
                 ),
               ),
 

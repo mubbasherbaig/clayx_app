@@ -22,11 +22,14 @@ dependencies:
   http: ^1.2.1
   dio: ^5.4.3
   
+  # WebSocket (NEW!)
+  socket_io_client: ^2.0.3+1
+
   # Local Storage
   shared_preferences: ^2.2.3
   
   # Authentication
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^9.2.2
   
   # Google Sign In (optional for later)
   google_sign_in: ^6.2.1

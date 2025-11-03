@@ -3,8 +3,8 @@ import '../utils/colors.dart';
 import 'dashboard_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'profile_screen.dart';
+import 'control_screen.dart';
 
-/// Main Navigation Screen with 6 bottom nav items (matching Figma)
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -15,25 +15,28 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _selectedIndex = 0;
 
-  // Placeholder screens for tabs that aren't built yet
   final List<Widget> _screens = [
-    const DashboardScreen(), // Home
+    const DashboardScreen(),
     const PlaceholderScreen(title: 'Scan', icon: Icons.qr_code_scanner),
-    const PlaceholderScreen(title: 'Control', icon: Icons.tune),
+    const ControlScreen(),
     const PlaceholderScreen(title: 'Notifications', icon: Icons.notifications_outlined),
-    const ProfileScreen(), // Profile
+    const ProfileScreen(),
     const PlaceholderScreen(title: 'Rewards', icon: Icons.emoji_events_outlined),
   ];
 
-  void _onItemTapped(int index) {
-    // Open QR Scanner as modal for Scan tab
+  void _onItemTapped(int index) async {
     if (index == 1) {
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => const QRScannerScreen(),
         ),
       );
+
+      // Handle navigation from QR Scanner bottom bar
+      if (result != null && result is Map && result['action'] == 'navigate') {
+        setState(() => _selectedIndex = result['index']);
+      }
       return;
     }
 
@@ -113,7 +116,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-/// Placeholder screen for tabs not yet implemented
 class PlaceholderScreen extends StatelessWidget {
   final String title;
   final IconData icon;

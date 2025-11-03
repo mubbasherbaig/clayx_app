@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../services/websocket_service.dart';
 import '../utils/colors.dart';
 import '../services/api_service.dart';
+import 'add_plant_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,19 +15,200 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ApiService _apiService = ApiService();
+  final WebSocketService _wsService = WebSocketService();
   List<dynamic> _plants = [];
   bool _isLoading = true;
   String _userName = 'User';
   int _selectedPlantIndex = 0;
   bool _isDarkMode = false;
 
+  StreamSubscription<Map<String, dynamic>>? _sensorSubscription;
+  StreamSubscription<Map<String, dynamic>>? _deviceStatusSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
+  bool _isWsConnected = false;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _connectWebSocket();
+    _setupWebSocketListeners();
   }
 
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _sensorSubscription?.cancel();  // NEW
+    _deviceStatusSubscription?.cancel();  // NEW
+    super.dispose();
+  }
+
+  Future<void> _connectWebSocket() async {
+    await _wsService.connect();
+
+    // Wait a bit for connection to establish
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Listen for connection status
+    _connectionSubscription = _wsService.connectionStream.listen((connected) {
+      if (mounted) {
+        setState(() => _isWsConnected = connected);
+
+        // When connected, join device rooms
+        if (connected && _plants.isNotEmpty) {
+          _joinDeviceRooms();
+        }
+      }
+    });
+
+    // Listen for sensor updates
+    _sensorSubscription = _wsService.sensorDataStream.listen((data) {
+      if (mounted) {
+        _handleSensorUpdate(data);
+      }
+    });
+
+    // Listen for device status
+    _deviceStatusSubscription = _wsService.deviceStatusStream.listen((data) {
+      if (mounted) {
+        _handleDeviceStatus(data);
+      }
+    });
+  }
+
+  Future<void> _joinDeviceRooms() async {
+    final deviceIds = _plants
+        .where((p) => p['device_id_string'] != null)
+        .map((p) => p['device_id_string'] as String)
+        .toSet()
+        .toList();
+
+    if (deviceIds.isNotEmpty) {
+      await _wsService.joinDeviceRooms(deviceIds);
+      print('[Dashboard] Joined ${deviceIds.length} device rooms');
+    }
+  }
+
+  void _handleSensorUpdate(Map<String, dynamic> data) {
+    print('[Dashboard] Real-time sensor update: $data');
+
+    final plantId = data['plantId'];
+    final sensorData = data['data'];
+
+    if (plantId == null || sensorData == null) {
+      print('[Dashboard] Invalid sensor update data');
+      return;
+    }
+
+    // Properly cast the data
+    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(sensorData);
+
+    // Find and update the plant
+    setState(() {
+      final index = _plants.indexWhere((p) => p['id'] == plantId);
+      if (index != -1) {
+        print('[Dashboard] Updating plant ${_plants[index]['plant_name']}');
+
+        // Create a new map with proper typing
+        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(_plants[index]);
+
+        _plants[index] = {
+          ...currentPlant,
+          'temperature': sensorMap['temperature'],
+          'humidity': sensorMap['humidity'],
+          'soil_moisture': sensorMap['soil_moisture'],
+          'water_level': sensorMap['water_level'],
+          'light_level': sensorMap['light_level'],
+        };
+
+        // Show a subtle notification
+        if (_selectedPlantIndex == index) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Sensor data updated'),
+              duration: const Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppColors.primaryGreen,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  void _handleDeviceStatus(Map<String, dynamic> data) {
+    print('[Dashboard] Device status update: $data');
+
+    final deviceId = data['deviceId'];
+    final isOnline = data['isOnline'] ?? false;
+    final lastSeen = data['lastSeen'];
+
+    setState(() {
+      for (var plant in _plants) {
+        if (plant['device_id_string'] == deviceId) {
+          plant['is_online'] = isOnline;
+          if (lastSeen != null) {
+            plant['last_seen'] = lastSeen;
+          }
+          print('[Dashboard] Device $deviceId is now ${isOnline ? "ONLINE" : "OFFLINE"}');
+        }
+      }
+    });
+  }
+
+  // NEW: Setup WebSocket listeners
+  void _setupWebSocketListeners() {
+    // Listen for sensor updates
+    _sensorSubscription = _wsService.sensorDataStream.listen((data) {
+      print('[DASHBOARD] Sensor update received: $data');
+      _updatePlantSensorData(data);
+    });
+
+    // Listen for device status changes
+    _deviceStatusSubscription = _wsService.deviceStatusStream.listen((data) {
+      print('[DASHBOARD] Device status: $data');
+      _updateDeviceStatus(data);
+    });
+  }
+
+  // NEW: Update plant sensor data from WebSocket
+  void _updatePlantSensorData(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    final plantId = data['plantId'];
+    final sensorData = data['data'];
+
+    setState(() {
+      for (var i = 0; i < _plants.length; i++) {
+        if (_plants[i]['id'] == plantId) {
+          _plants[i]['temperature'] = sensorData['temperature'];
+          _plants[i]['humidity'] = sensorData['humidity'];
+          _plants[i]['soil_moisture'] = sensorData['soil_moisture'];
+          _plants[i]['water_level'] = sensorData['water_level'];
+          _plants[i]['light_level'] = sensorData['light_level'];
+          break;
+        }
+      }
+    });
+  }
+
+  // NEW: Update device online status
+  void _updateDeviceStatus(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    final deviceId = data['deviceId'];
+    final isOnline = data['isOnline'];
+
+    setState(() {
+      for (var plant in _plants) {
+        if (plant['device_id'] == deviceId) {
+          plant['is_online'] = isOnline;
+        }
+      }
+    });
+  }
+
+  // Load initial data (only once, then WebSocket handles updates)
+  Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
 
     try {
@@ -51,6 +236,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Get user profile
+      final profileResponse = await _apiService.getProfile();
+      if (profileResponse['success']) {
+        setState(() {
+          _userName = profileResponse['data']['fullName']?.split(' ')[0] ?? 'User';
+        });
+      }
+
+      // Get plants
+      final plantsResponse = await _apiService.getPlants();
+      if (plantsResponse['success']) {
+        setState(() {
+          _plants = plantsResponse['data'] ?? [];
+        });
+
+        // Join device rooms after loading plants
+        if (_isWsConnected && _plants.isNotEmpty) {
+          await _joinDeviceRooms();
+        }
+      }
+    } catch (e) {
+      print('Error loading data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   double _toDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -62,12 +280,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundColor,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-          onRefresh: _loadData,
+          onRefresh: _loadInitialData,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
@@ -87,7 +305,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -127,6 +344,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Actions
           Row(
             children: [
+              // WebSocket Connection Indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _isWsConnected
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: _isWsConnected ? Colors.green : Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _isWsConnected ? 'Live' : 'Offline',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _isWsConnected ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: Icon(
                   _isDarkMode ? Icons.light_mode : Icons.dark_mode,
@@ -171,35 +421,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildGreetingSection() {
     return Container(
       padding: const EdgeInsets.all(20),
-      color: Colors.white,
+      color: AppColors.backgroundColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RichText(
             text: TextSpan(
               style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                fontWeight: FontWeight.normal,
                 color: AppColors.black,
               ),
               children: [
-                const TextSpan(text: 'Good '),
-                TextSpan(text: _getGreeting()),
-                const TextSpan(text: ', '),
-              ],
-            ),
-          ),
-          RichText(
-            text: TextSpan(
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.black,
-              ),
-              children: [
+                TextSpan(text: '${_getGreeting()}, '),
                 TextSpan(
-                  text: '[$_userName]',
-                  style: const TextStyle(color: AppColors.grey),
+                  text: _userName.split(' ')[0], // Only first name
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold, // Make name bold (optional)
+                    color: AppColors.black,
+                  ),
                 ),
               ],
             ),
@@ -289,7 +529,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -314,8 +553,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Plant tabs
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -349,8 +586,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Plant card
           _buildPlantCard(_plants[_selectedPlantIndex]),
         ],
       ),
@@ -361,7 +596,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final soilMoisture = _toDouble(plant['soil_moisture']);
     final temperature = _toDouble(plant['temperature']);
     final waterLevel = _toDouble(plant['water_level']);
-    final lightLevel = plant['light_level']?.toString() ?? '0';
+    final humidity = _toDouble(plant['humidity']);
+
+    // Fix: Trim and parse light level (handle " 0" format)
+    final lightLevelStr = (plant['light_level']?.toString() ?? '0').trim();
+    final lightLevel = double.tryParse(lightLevelStr) ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -371,7 +610,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Column(
         children: [
-          // Header with plant image
           Row(
             children: [
               Container(
@@ -401,12 +639,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Added 2 weeks ago',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.grey,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: plant['is_online'] == true ? Colors.green : Colors.grey,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          plant['is_online'] == true ? 'Online' : 'Offline',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: plant['is_online'] == true ? Colors.green : Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -414,17 +665,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 20),
-
-          // Metrics grid
           Row(
             children: [
               Expanded(
                 child: _buildMetricItem(
                   icon: Icons.water_drop,
                   label: 'Water',
-                  value: '${waterLevel.toStringAsFixed(0)}%',
-                  color: waterLevel < 30 ? Colors.red : AppColors.primaryGreen,
-                  isWarning: waterLevel < 30,
+                  value: '${soilMoisture.toStringAsFixed(1)}%',
+                  color: soilMoisture < 30 ? Colors.red : AppColors.primaryGreen,
+                  isWarning: soilMoisture < 30,
                 ),
               ),
               const SizedBox(width: 12),
@@ -432,10 +681,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildMetricItem(
                   icon: Icons.wb_sunny,
                   label: 'Light',
-                  value: _getLightStatus(lightLevel),
+                  value: _getLightStatusFromValue(lightLevel),
                   color: AppColors.primaryGreen,
                   isWarning: false,
-                  showCheck: true,
+                  showCheck: lightLevel > 0,
                 ),
               ),
             ],
@@ -447,10 +696,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildMetricItem(
                   icon: Icons.opacity,
                   label: 'Soil',
-                  value: _getSoilStatus(soilMoisture),
+                  value: '${soilMoisture.toStringAsFixed(1)}%',
                   color: AppColors.primaryGreen,
-                  isWarning: false,
-                  showCheck: true,
+                  isWarning: soilMoisture < 30,
+                  showCheck: soilMoisture > 30,
                 ),
               ),
               const SizedBox(width: 12),
@@ -466,9 +715,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
+          if (humidity > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricItem(
+                    icon: Icons.water,
+                    label: 'Humidity',
+                    value: '${humidity.toStringAsFixed(1)}%',
+                    color: AppColors.primaryGreen,
+                    isWarning: false,
+                    showCheck: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+// Add this helper method
+  String _getLightStatusFromValue(double lightLevel) {
+    if (lightLevel == 0) return 'Dark';
+    if (lightLevel > 1000) return 'Bright';
+    if (lightLevel > 500) return 'Medium';
+    return 'Low';
   }
 
   Widget _buildMetricItem({
@@ -539,10 +815,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildActionButton(
-                icon: Icons.grid_view,
+                icon: Icons.add,
                 label: 'Add Plant',
                 color: AppColors.primaryGreen,
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddPlantScreen(),
+                    ),
+                  ).then((result) {
+                    if (result == true) {
+                      _loadData(); // Refresh dashboard after adding plant
+                    }
+                  });
+                },
               ),
               _buildActionButton(
                 icon: Icons.water_drop,
@@ -677,10 +964,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Plants Saved',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -688,8 +975,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                               Text(
-                                '12',
-                                style: TextStyle(
+                                '${_plants.length}',
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.black,
@@ -706,17 +993,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Next Reward: 1000 pts',
                           style: TextStyle(
                             fontSize: 12,
                             color: AppColors.grey,
                           ),
                         ),
-                        const Text(
+                        Text(
                           '75%',
                           style: TextStyle(
                             fontSize: 12,
@@ -729,10 +1016,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
+                      child: const LinearProgressIndicator(
                         value: 0.75,
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
+                        backgroundColor: Color(0xFFE5E7EB),
+                        valueColor: AlwaysStoppedAnimation<Color>(
                           AppColors.primaryGreen,
                         ),
                         minHeight: 8,
@@ -748,64 +1035,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, 'Home', true),
-              _buildNavItem(Icons.qr_code_scanner, 'Scan', false),
-              _buildNavItem(Icons.tune, 'Control', false),
-              _buildNavItem(Icons.notifications_outlined, 'Notifications', false),
-              _buildNavItem(Icons.person_outline, 'Profile', false),
-              _buildNavItem(Icons.emoji_events_outlined, 'Rewards', false),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? AppColors.primaryGreen : AppColors.grey,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isSelected ? AppColors.primaryGreen : AppColors.grey,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Morning';
-    if (hour < 17) return 'Afternoon';
-    return 'Evening';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 
   String _getLightStatus(String lightLevel) {

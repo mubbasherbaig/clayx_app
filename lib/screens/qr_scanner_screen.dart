@@ -12,6 +12,7 @@ class QRScannerScreen extends StatefulWidget {
 class _QRScannerScreenState extends State<QRScannerScreen> {
   MobileScannerController cameraController = MobileScannerController();
   bool _isScanned = false;
+  bool _torchEnabled = false;
 
   @override
   void dispose() {
@@ -32,90 +33,198 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     }
   }
 
+  void _showManualEntryDialog() {
+    final TextEditingController controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Enter Code Manually'),
+            content: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Enter device ID',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (controller.text
+                      .trim()
+                      .isNotEmpty) {
+                    Navigator.pop(context);
+                    Navigator.pop(context, controller.text.trim());
+                  }
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.black,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Scan QR Code',
+          style: TextStyle(
+            color: AppColors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.close, color: AppColors.white),
-            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.help_outline, color: AppColors.black),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) =>
+                    AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: const Text('How to Scan'),
+                      content: const Text(
+                        'Point your camera at the QR code on your device. '
+                            'The code will be scanned automatically when it\'s in focus.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+              );
+            },
           ),
         ],
       ),
       body: Stack(
         children: [
-          // Camera Scanner
-          MobileScanner(
-            controller: cameraController,
-            onDetect: _onDetect,
-          ),
-
-          // Overlay with scan area
-          CustomPaint(
-            painter: ScannerOverlay(),
-            child: Container(),
-          ),
-
-          // Header
-          Positioned(
-            top: 20,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: const Text(
-                'Scan QR Code',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.white,
+          // Camera Scanner with border
+          Center(
+            child: Container(
+              width: 300,
+              height: 300,
+              margin: const EdgeInsets.only(bottom: 100),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.primaryGreen,
+                  width: 3,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(17),
+                child: MobileScanner(
+                  controller: cameraController,
+                  onDetect: _onDetect,
                 ),
               ),
             ),
           ),
 
-          // Instructions
+          // Scanner Overlay with corners
+          CustomPaint(
+            painter: ScannerOverlay(),
+            child: Container(),
+          ),
+
+          // Instruction Text
           Positioned(
-            bottom: 100,
+            top: 50,
             left: 0,
             right: 0,
             child: Center(
-              child: Column(
-                children: [
-                  const Text(
-                    'Align QR code within frame to scan the device',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.white,
-                    ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
+                child: const Text(
+                  'Align the QR code within the frame to add your plant.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.grey,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 20),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 29),
 
+          // Buttons
+          Positioned(
+            bottom: 150,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   // Manual Entry Button
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      // Show manual entry dialog
-                    },
-                    icon: const Icon(Icons.keyboard, color: AppColors.white),
+                  ElevatedButton.icon(
+                    onPressed: _showManualEntryDialog,
+                    icon: const Icon(Icons.keyboard, size: 18),
                     label: const Text(
                       'Enter Code Manually',
-                      style: TextStyle(color: AppColors.white),
+                      style: TextStyle(fontSize: 14),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.white),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF0F0F0),
+                      foregroundColor: AppColors.black,
+                      elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
+                        horizontal: 20,
                         vertical: 12,
                       ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // Torch Toggle Button
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _torchEnabled
+                          ? AppColors.primaryGreen
+                          : const Color(0xFFF0F0F0),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        _torchEnabled ? Icons.flash_on : Icons.flash_off,
+                        color: _torchEnabled ? Colors.white : AppColors.black,
+                      ),
+                      onPressed: () {
+                        setState(() => _torchEnabled = !_torchEnabled);
+                        cameraController.toggleTorch();
+                      },
                     ),
                   ),
                 ],
@@ -124,45 +233,76 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomNavigationBar() {
     return Container(
-      color: AppColors.black,
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildBottomIcon(Icons.home_outlined, 'Home'),
-          _buildBottomIcon(Icons.qr_code_scanner, 'Scan', isSelected: true),
-          _buildBottomIcon(Icons.category_outlined, 'All'),
-          _buildBottomIcon(Icons.location_on_outlined, 'Location'),
-          _buildBottomIcon(Icons.settings_outlined, 'Settings'),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
         ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(Icons.home, 'Home', false, 0),
+              _buildNavItem(Icons.qr_code_scanner, 'Scan', true, 1),
+              _buildNavItem(Icons.tune, 'Control', false, 2),
+              _buildNavItem(
+                  Icons.notifications_outlined, 'Notifications', false, 3),
+              _buildNavItem(Icons.person_outline, 'Profile', false, 4),
+              _buildNavItem(Icons.emoji_events_outlined, 'Rewards', false, 5),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildBottomIcon(IconData icon, String label, {bool isSelected = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? AppColors.primaryGreen : AppColors.white,
-          size: 24,
+  Widget _buildNavItem(IconData icon, String label, bool isSelected,
+      int index) {
+    return GestureDetector(
+      onTap: () {
+        if (index == 1) {
+          // Already on Scan screen, do nothing
+          return;
+        }
+        // Pop and pass the tab index to navigate to
+        Navigator.pop(context, {'action': 'navigate', 'index': index});
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? AppColors.primaryGreen : AppColors.grey,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? AppColors.primaryGreen : AppColors.grey,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? AppColors.primaryGreen : AppColors.white,
-            fontSize: 10,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -170,24 +310,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 class ScannerOverlay extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
-      ..style = PaintingStyle.fill;
-
     final scanArea = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2.5),
-      width: 250,
-      height: 250,
+      center: Offset(size.width / 2, (size.height / 2) - 50),
+      width: 300,
+      height: 300,
     );
 
-    final path = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..addRRect(RRect.fromRectAndRadius(scanArea, const Radius.circular(20)))
-      ..fillType = PathFillType.evenOdd;
-
-    canvas.drawPath(path, paint);
-
-    // Draw corner brackets
     final cornerPaint = Paint()
       ..color = AppColors.primaryGreen
       ..style = PaintingStyle.stroke

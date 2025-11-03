@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/colors.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,19 +13,34 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final ApiService _apiService = ApiService();
+
   @override
   void initState() {
     super.initState();
-    _navigateToLogin();
+    _checkLoginStatus();
   }
 
-  _navigateToLogin() async {
-    await Future.delayed(const Duration(seconds: 3));
+  _checkLoginStatus() async {
+    await Future.delayed(const Duration(seconds: 2)); // Show splash for 2 seconds
+
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      // Check if user has a valid token
+      final isLoggedIn = await _apiService.isLoggedIn();
+
+      if (isLoggedIn) {
+        // User is logged in, go to main app
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+        );
+      } else {
+        // No token, go to login
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      }
     }
   }
 
@@ -42,30 +59,12 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo placeholder - replace with your actual logo
-            Container(
+            Image.asset(
+              'assets/images/icons/logo.png',
               width: 150,
               height: 150,
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.eco,
-                size: 80,
-                color: AppColors.primaryGreen,
-              ),
             ),
             const SizedBox(height: 30),
-            Text(
-              'Clayx',
-              style: GoogleFonts.poppins(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: AppColors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
             Text(
               'Smart Planter',
               style: GoogleFonts.poppins(

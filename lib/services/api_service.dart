@@ -6,39 +6,68 @@ class ApiService {
   // CHANGE THIS to your Render URL!
   static const String baseUrl = 'https://clayx-backend.onrender.com/api';
 
-  final storage = const FlutterSecureStorage();
+// Add Android options to prevent the error
+  final storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
 
-  // ==================== TOKEN MANAGEMENT ====================
+// ==================== TOKEN MANAGEMENT ====================
 
-  // Get stored token
+// Get stored token with error handling
   Future<String?> getToken() async {
-    return await storage.read(key: 'auth_token');
+    try {
+      return await storage.read(key: 'auth_token');
+    } catch (e) {
+      print('Error reading token: $e');
+      return null;
+    }
   }
 
-  // Save token
+// Save token with error handling
   Future<void> saveToken(String token) async {
-    await storage.write(key: 'auth_token', value: token);
+    try {
+      await storage.write(key: 'auth_token', value: token);
+    } catch (e) {
+      print('Error saving token: $e');
+      rethrow;
+    }
   }
 
-  // Delete token
+// Delete token with error handling
   Future<void> deleteToken() async {
-    await storage.delete(key: 'auth_token');
+    try {
+      await storage.delete(key: 'auth_token');
+    } catch (e) {
+      print('Error deleting token: $e');
+    }
   }
 
-  // Save user data
+// Save user data with error handling
   Future<void> saveUserData(Map<String, dynamic> user) async {
-    await storage.write(key: 'user_id', value: user['id'].toString());
-    await storage.write(key: 'user_name', value: user['fullName']);
-    await storage.write(key: 'user_email', value: user['email']);
+    try {
+      await storage.write(key: 'user_id', value: user['id'].toString());
+      await storage.write(key: 'user_name', value: user['fullName']);
+      await storage.write(key: 'user_email', value: user['email']);
+    } catch (e) {
+      print('Error saving user data: $e');
+      rethrow;
+    }
   }
 
-  // Get user data
+// Get user data with error handling
   Future<Map<String, String?>> getUserData() async {
-    return {
-      'id': await storage.read(key: 'user_id'),
-      'name': await storage.read(key: 'user_name'),
-      'email': await storage.read(key: 'user_email'),
-    };
+    try {
+      return {
+        'id': await storage.read(key: 'user_id'),
+        'name': await storage.read(key: 'user_name'),
+        'email': await storage.read(key: 'user_email'),
+      };
+    } catch (e) {
+      print('Error reading user data: $e');
+      return {'id': null, 'name': null, 'email': null};
+    }
   }
 
   // Clear all data
@@ -89,6 +118,78 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> sendDeviceCommand({
+    required String deviceId,
+    required String commandType,
+    required String commandValue,
+  }) async {
+    try {
+      final headers = await getHeaders();
+      final response = await http.post(
+        Uri.parse('$baseUrl/sensor/commands'),
+        headers: headers,
+        body: jsonEncode({
+          'deviceId': deviceId,
+          'commandType': commandType,
+          'commandValue': commandValue,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to send command');
+      }
+    } catch (e) {
+      throw Exception('Connection error: ${e.toString()}');
+    }
+  }
+
+  // Turn pump on
+  Future<Map<String, dynamic>> turnPumpOn(String deviceId) async {
+    return await sendDeviceCommand(
+      deviceId: deviceId,
+      commandType: 'pump',
+      commandValue: 'on',
+    );
+  }
+
+  // Turn pump off
+  Future<Map<String, dynamic>> turnPumpOff(String deviceId) async {
+    return await sendDeviceCommand(
+      deviceId: deviceId,
+      commandType: 'pump',
+      commandValue: 'off',
+    );
+  }
+
+  // Get command history for a device
+  Future<Map<String, dynamic>> getCommandHistory({
+    required String deviceId,
+    int limit = 50,
+  }) async {
+    try {
+      final headers = await getHeaders();
+      final uri = Uri.parse(
+        '$baseUrl/sensor/device/$deviceId/commands/history',
+      ).replace(queryParameters: {'limit': limit.toString()});
+
+      final response = await http.get(uri, headers: headers);
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to get command history');
+      }
+    } catch (e) {
+      throw Exception('Connection error: ${e.toString()}');
+    }
+  }
+
   // Login user
   Future<Map<String, dynamic>> login({
     required String email,
@@ -98,10 +199,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       final data = jsonDecode(response.body);
@@ -141,17 +239,13 @@ class ApiService {
   }
 
   // Update user profile
-  Future<Map<String, dynamic>> updateProfile({
-    required String fullName,
-  }) async {
+  Future<Map<String, dynamic>> updateProfile({required String fullName}) async {
     try {
       final headers = await getHeaders();
       final response = await http.put(
         Uri.parse('$baseUrl/auth/profile'),
         headers: headers,
-        body: jsonEncode({
-          'fullName': fullName,
-        }),
+        body: jsonEncode({'fullName': fullName}),
       );
 
       final data = jsonDecode(response.body);
@@ -169,16 +263,12 @@ class ApiService {
   }
 
   // Forgot password
-  Future<Map<String, dynamic>> forgotPassword({
-    required String email,
-  }) async {
+  Future<Map<String, dynamic>> forgotPassword({required String email}) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/forgot-password'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-        }),
+        body: jsonEncode({'email': email}),
       );
 
       final data = jsonDecode(response.body);
@@ -423,9 +513,7 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/devices'),
         headers: headers,
-        body: jsonEncode({
-          'deviceId': deviceId,
-        }),
+        body: jsonEncode({'deviceId': deviceId}),
       );
 
       final data = jsonDecode(response.body);
@@ -450,9 +538,7 @@ class ApiService {
       final response = await http.put(
         Uri.parse('$baseUrl/devices/$deviceId'),
         headers: headers,
-        body: jsonEncode({
-          'isOnline': isOnline,
-        }),
+        body: jsonEncode({'isOnline': isOnline}),
       );
 
       final data = jsonDecode(response.body);
@@ -563,8 +649,9 @@ class ApiService {
         if (endDate != null) 'endDate': endDate,
       };
 
-      final uri = Uri.parse('$baseUrl/sensor/plants/$plantId/history')
-          .replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        '$baseUrl/sensor/plants/$plantId/history',
+      ).replace(queryParameters: queryParams);
 
       final response = await http.get(uri, headers: headers);
 
@@ -591,9 +678,9 @@ class ApiService {
   // Test API connection
   Future<bool> testConnection() async {
     try {
-      final response = await http.get(
-        Uri.parse(baseUrl.replaceAll('/api', '')),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse(baseUrl.replaceAll('/api', '')))
+          .timeout(const Duration(seconds: 10));
 
       return response.statusCode == 200;
     } catch (e) {

@@ -106,17 +106,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Container(
                       width: 80,
                       height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.eco,
-                        size: 40,
-                        color: AppColors.primaryGreen,
+                      child: ClipOval(
+                        child: Padding(
+                          padding: const EdgeInsets.all(0), // Adjust padding as needed
+                          child: Image.asset(
+                            'assets/images/icons/nobg_logo.png', // Your custom icon path
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 6),
                     const Text(
                       'Smart Planter',
                       style: TextStyle(
@@ -125,19 +124,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         color: AppColors.black,
                       ),
                     ),
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Create Account',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.black,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Title
-              const Text(
-                'Create Account',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.black,
                 ),
               ),
 
@@ -208,9 +204,69 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
 
               const SizedBox(height: 40),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SocialButton(
+                      icon: Icons.g_mobiledata,
+                      label: 'Google',
+                      onPressed: () {
+                        // TODO: Implement Google Sign In
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _SocialButton(
+                      icon: Icons.apple,
+                      label: 'Apple',
+                      onPressed: () {
+                        // TODO: Implement Apple Sign In
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+class _SocialButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _SocialButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppColors.black),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -20,6 +20,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
   String _selectedPlantType = 'Aloe Vera';
   bool _isLoading = false;
+  bool _isDarkMode = false;
 
   final List<String> _plantTypes = [
     'Aloe Vera',
@@ -44,7 +45,6 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   }
 
   Future<void> _handleAddPlant() async {
-    // Validate inputs
     if (_plantNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter plant name')),
@@ -62,16 +62,12 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // First, try to register the device
       try {
         await _apiService.registerDevice(_deviceIdController.text.trim());
-        print('Device registered successfully');
       } catch (e) {
-        // Device might already be registered, that's okay
         print('Device registration: $e');
       }
 
-      // Now add the plant
       final response = await _apiService.addPlant(
         plantName: _plantNameController.text.trim(),
         plantType: _selectedPlantType,
@@ -90,7 +86,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // Return true to indicate success
+        Navigator.pop(context, true);
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -108,18 +104,31 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () => Navigator.pop(context),
         ),
+        title: const Text(
+          'Add Plant',
+          style: TextStyle(
+            color: AppColors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.close, color: AppColors.black),
-            onPressed: () => Navigator.pop(context),
+            icon: Icon(
+              _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: AppColors.grey,
+            ),
+            onPressed: () {
+              setState(() => _isDarkMode = !_isDarkMode);
+            },
           ),
         ],
       ),
@@ -127,57 +136,33 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Title
-              const Text(
-                'Add Plant',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.black,
+              const SizedBox(height: 20),
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen,
+                  borderRadius: BorderRadius.circular(100),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Connect your ESP32 device and name your plant',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.grey.withOpacity(0.8),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // Plant Icon/Image Placeholder
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.local_florist,
-                    size: 60,
-                    color: AppColors.primaryGreen,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: Image.asset(
+                    'assets/images/icons/add_plant_icon.png',
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
-
               const SizedBox(height: 32),
-
-              // Plant Name Field
               CustomTextField(
                 label: 'Plant Name',
-                hint: 'E.g. Tom Hardy, My Aloe',
+                hint: 'E.g., Fern Gully',
                 controller: _plantNameController,
               ),
-
               const SizedBox(height: 20),
-
-              // Plant Type Dropdown
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -218,10 +203,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 20),
-
-              // Device ID Field with QR Scanner
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -237,7 +219,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   TextField(
                     controller: _deviceIdController,
                     decoration: InputDecoration(
-                      hintText: 'CLAYX_ESP001',
+                      hintText: 'Enter device ID or scan QR code',
                       hintStyle: TextStyle(
                         color: AppColors.grey.withOpacity(0.5),
                         fontSize: 13,
@@ -286,71 +268,43 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter the device ID from your ESP32 or scan QR code',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.grey.withOpacity(0.7),
-                    ),
-                  ),
                 ],
               ),
-
               const SizedBox(height: 20),
-
-              // Location Field
               CustomTextField(
-                label: 'Location (Optional)',
-                hint: 'E.g. Living Room, Balcony',
+                label: 'Location',
+                hint: 'E.g., Living Room',
                 controller: _locationController,
               ),
-
-              const SizedBox(height: 32),
-
-              // Info Box
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.primaryGreen.withOpacity(0.3),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Implement image picker
+                },
+                icon: const Icon(Icons.photo_camera, color: AppColors.grey),
+                label: const Text(
+                  'Add Photo (Optional)',
+                  style: TextStyle(color: AppColors.grey),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                  side: BorderSide(
+                    color: AppColors.grey.withOpacity(0.3),
+                    style: BorderStyle.solid,
+                    width: 1.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppColors.primaryGreen,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Make sure your ESP32 device is powered on and connected to WiFi',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.primaryGreen,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
-
               const SizedBox(height: 32),
-
-              // Add Plant Button
               CustomButton(
                 text: 'Add Plant',
                 onPressed: _handleAddPlant,
                 isLoading: _isLoading,
               ),
-
               const SizedBox(height: 16),
-
-              // Cancel Button
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -372,8 +326,6 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   ),
                 ),
               ),
-
-              const SizedBox(height: 40),
             ],
           ),
         ),

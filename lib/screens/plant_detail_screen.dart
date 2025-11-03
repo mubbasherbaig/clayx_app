@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../services/websocket_service.dart';
 import '../utils/colors.dart';
 import 'my_plants_screen.dart';
 
@@ -13,7 +16,8 @@ class PlantDetailScreen extends StatefulWidget {
 
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
   int _selectedTab = 0;
-
+  final WebSocketService _wsService = WebSocketService();
+  StreamSubscription? _sensorSubscription;
   final List<TimelineEvent> _timeline = [
     TimelineEvent(
       title: 'Scheduled / 7hr:20min/day',
@@ -40,7 +44,24 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       color: Colors.red,
     ),
   ];
+  @override
+  void initState() {
+    super.initState();
+    _sensorSubscription = _wsService.sensorDataStream.listen((data) {
+      if (data['plantId'] == widget.plant.id) {
+        // Update plant data in real-time
+        setState(() {
+          // Update your plant metrics
+        });
+      }
+    });
+  }
 
+  @override
+  void dispose() {
+    _sensorSubscription?.cancel();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -234,7 +255,18 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: () {
-                // Water now action
+                // Send pump command via WebSocket
+                final deviceId = widget.plant.deviceId;  // Make sure Plant model has deviceId
+
+                _wsService.sendCommand(deviceId, 'pump', 'on');
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Watering command sent!'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryGreen,
