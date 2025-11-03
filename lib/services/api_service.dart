@@ -158,7 +158,7 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> updateProfile({required String fullName}) async {
+  Future<Map<String, dynamic>> updateProfile({required String fullName, required String email}) async {
     try {
       final headers = await getHeaders();
       final response = await http.put(

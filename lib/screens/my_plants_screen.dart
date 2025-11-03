@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../utils/colors.dart';
 import '../services/api_service.dart';
+import '../services/websocket_service.dart';
 import 'plant_detail_screen.dart';
 import 'add_plant_screen.dart';
 
@@ -15,13 +17,122 @@ class MyPlantsScreen extends StatefulWidget {
 
 class _MyPlantsScreenState extends State<MyPlantsScreen> {
   final ApiService _apiService = ApiService();
+  final WebSocketService _wsService = WebSocketService();
   List<dynamic> _plants = [];
   bool _isLoading = true;
+
+  StreamSubscription<Map<String, dynamic>>? _sensorSubscription;
+  StreamSubscription<Map<String, dynamic>>? _deviceStatusSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
+  bool _isWsConnected = false;
 
   @override
   void initState() {
     super.initState();
     _loadPlants();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _connectWebSocket();
+    });
+  }
+
+  @override
+  void dispose() {
+    _sensorSubscription?.cancel();
+    _deviceStatusSubscription?.cancel();
+    _connectionSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _connectWebSocket() async {
+    await _wsService.connect();
+
+    // Listen for connection status
+    _connectionSubscription = _wsService.connectionStream.listen((connected) {
+      if (mounted) {
+        setState(() => _isWsConnected = connected);
+
+        if (connected && _plants.isNotEmpty) {
+          _joinDeviceRooms();
+        }
+      }
+    });
+
+    // Listen for sensor updates
+    _sensorSubscription = _wsService.sensorDataStream.listen((data) {
+      if (mounted) {
+        _handleSensorUpdate(data);
+      }
+    });
+
+    // Listen for device status
+    _deviceStatusSubscription = _wsService.deviceStatusStream.listen((data) {
+      if (mounted) {
+        _handleDeviceStatus(data);
+      }
+    });
+  }
+
+  Future<void> _joinDeviceRooms() async {
+    final deviceIds = _plants
+        .where((p) => p['device_id_string'] != null || p['device_id'] != null)
+        .map((p) => (p['device_id_string'] ?? p['device_id']).toString())
+        .toSet()
+        .toList();
+
+    if (deviceIds.isNotEmpty) {
+      await _wsService.joinDeviceRooms(deviceIds);
+      print('[MY_PLANTS] Joined ${deviceIds.length} device rooms');
+    }
+  }
+
+  void _handleSensorUpdate(Map<String, dynamic> data) {
+    print('[MY_PLANTS] Real-time sensor update: $data');
+
+    final plantId = data['plantId'];
+    final sensorData = data['data'];
+
+    if (plantId == null || sensorData == null) return;
+
+    final Map<String, dynamic> sensorMap = Map<String, dynamic>.from(sensorData);
+
+    setState(() {
+      final index = _plants.indexWhere((p) => p['id'] == plantId);
+      if (index != -1) {
+        final Map<String, dynamic> currentPlant = Map<String, dynamic>.from(_plants[index]);
+
+        _plants[index] = {
+          ...currentPlant,
+          'temperature': sensorMap['temperature'],
+          'humidity': sensorMap['humidity'],
+          'soil_moisture': sensorMap['soil_moisture'],
+          'water_level': sensorMap['water_level'],
+          'light_level': sensorMap['light_level'],
+          'is_online': true,
+          'last_seen': DateTime.now().toIso8601String(),
+        };
+      }
+    });
+  }
+
+  void _handleDeviceStatus(Map<String, dynamic> data) {
+    print('[MY_PLANTS] Device status update: $data');
+
+    final deviceId = data['deviceId'];
+    final isOnline = data['isOnline'] ?? false;
+    final lastSeen = data['lastSeen'];
+
+    setState(() {
+      for (var plant in _plants) {
+        final plantDeviceId = plant['device_id_string']?.toString() ?? plant['device_id']?.toString();
+
+        if (plantDeviceId == deviceId) {
+          plant['is_online'] = isOnline;
+          if (lastSeen != null) {
+            plant['last_seen'] = lastSeen;
+          }
+        }
+      }
+    });
   }
 
   Future<void> _loadPlants() async {
@@ -32,7 +143,16 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
       if (response['success']) {
         setState(() {
           _plants = response['data'] ?? [];
+
+          for (var plant in _plants) {
+            plant['is_online'] = false;
+          }
         });
+
+        // Join device rooms after loading plants
+        if (_isWsConnected && _plants.isNotEmpty) {
+          await _joinDeviceRooms();
+        }
       }
     } catch (e) {
       print('Error loading plants: $e');
@@ -59,10 +179,12 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         automaticallyImplyLeading: widget.showBottomNav,
-        leading: widget.showBottomNav ? IconButton(
+        leading: widget.showBottomNav
+            ? IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () => Navigator.pop(context),
-        ) : null,
+        )
+            : null,
         title: const Text(
           'My Plants',
           style: TextStyle(
@@ -72,6 +194,37 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
           ),
         ),
         actions: [
+          // Connection status indicator
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _isWsConnected ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _isWsConnected ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _isWsConnected ? 'Live' : 'Offline',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _isWsConnected ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list, color: AppColors.black),
             onPressed: () {
@@ -126,7 +279,7 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
         backgroundColor: AppColors.primaryGreen,
         child: const Icon(Icons.add, color: AppColors.white),
       ),
-      bottomNavigationBar: widget.showBottomNav ? null : null, // Will be handled by MainNavigationScreen
+      bottomNavigationBar: widget.showBottomNav ? null : null,
     );
   }
 
@@ -283,14 +436,32 @@ class _PlantCard extends StatelessWidget {
             Row(
               children: [
                 // Plant Image
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.local_florist, color: AppColors.primaryGreen, size: 28),
+                Stack(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.local_florist, color: AppColors.primaryGreen, size: 28),
+                    ),
+                    if (isOnline)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 12),
 

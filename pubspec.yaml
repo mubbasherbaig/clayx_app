@@ -13,30 +13,45 @@ dependencies:
 
   # UI & Icons
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
-  
+  google_fonts: ^6.3.2
+
   # State Management
-  provider: ^6.1.2
-  
+  provider: ^6.1.5+1
+
   # HTTP & API
-  http: ^1.2.1
-  dio: ^5.4.3
-  
-  # WebSocket (NEW!)
+  http: ^1.5.0
+  dio: ^5.9.0
+
+  # WebSocket
   socket_io_client: ^2.0.3+1
 
   # Local Storage
-  shared_preferences: ^2.2.3
-  
+  shared_preferences: ^2.5.3
+
   # Authentication
-  flutter_secure_storage: ^9.2.2
-  
-  # Google Sign In (optional for later)
-  google_sign_in: ^6.2.1
-  
-  # Apple Sign In (optional for later)
-  sign_in_with_apple: ^6.1.0
+  flutter_secure_storage: ^9.2.4
+
+  # Social Auth
+  google_sign_in: ^6.3.0
+  sign_in_with_apple: ^6.1.4
+
+  # QR Scanner
   mobile_scanner: ^5.2.3
+
+  # NEW: Image Picker
+  image_picker: ^1.1.2
+
+  # NEW: Local Notifications
+  flutter_local_notifications: ^17.2.3
+
+  # NEW: Timezone for notifications
+  timezone: ^0.9.4
+
+  # NEW: Intl for formatting
+  intl: ^0.19.0
+
+  # NEW: Image cropper (optional but recommended)
+  image_cropper: ^8.0.2
 
 dev_dependencies:
   flutter_test:
