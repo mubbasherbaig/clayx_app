@@ -4,6 +4,8 @@ import '../utils/colors.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'main_navigation_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -46,21 +48,26 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.white, AppColors.backgroundColor],
+            colors: isDark
+                ? [const Color(0xFF1A1A1A), const Color(0xFF2A2A2A)]
+                : [AppColors.white, AppColors.backgroundColor],
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/images/icons/logo.png',
+              'assets/images/icons/nobg_logo.png',
               width: 150,
               height: 150,
             ),
@@ -70,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 24,
                 fontWeight: FontWeight.w500,
-                color: AppColors.darkGreen,
+                color: isDark ? Colors.white : AppColors.darkGreen,
               ),
             ),
             const SizedBox(height: 20),
@@ -78,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
               'Growing smarter together',
               style: GoogleFonts.poppins(
                 fontSize: 16,
-                color: AppColors.grey,
+                color: isDark ? Colors.grey.shade300 : AppColors.grey,
               ),
             ),
           ],

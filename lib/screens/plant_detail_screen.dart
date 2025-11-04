@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/websocket_service.dart';
 import '../utils/colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class PlantDetailScreen extends StatefulWidget {
   final Map<String, dynamic> plant;
@@ -66,6 +68,8 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     final waterLevel = _toDouble(_currentPlant['soil_moisture']);
     final soilMoisture = _toDouble(_currentPlant['soil_moisture']);
     final temperature = _toDouble(_currentPlant['temperature']);
@@ -74,12 +78,12 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
     final healthPercentage = _calculateHealthPercentage();
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : AppColors.black),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -87,8 +91,8 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
           children: [
             Text(
               _currentPlant['plant_name'] ?? 'Unknown',
-              style: const TextStyle(
-                color: AppColors.black,
+              style: TextStyle(
+                color: isDark ? Colors.white : AppColors.black,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -104,10 +108,11 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Plant Image with Health Indicator
+            // Plant Image with Health Indicator
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(32),
-              color: Colors.white,
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
               child: Column(
                 children: [
                   Stack(
@@ -119,7 +124,7 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                         child: CircularProgressIndicator(
                           value: healthPercentage / 100,
                           strokeWidth: 8,
-                          backgroundColor: Colors.grey.shade200,
+                          backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             healthPercentage > 70 ? AppColors.primaryGreen : Colors.orange,
                           ),
@@ -129,7 +134,7 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                         width: 150,
                         height: 150,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
+                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                           shape: BoxShape.circle,
                         ),
                         child: ClipOval(
@@ -151,13 +156,14 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                              ),
+                              if (!isDark)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 8,
+                                ),
                             ],
                           ),
                           child: Text(
@@ -187,10 +193,10 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                       const SizedBox(width: 8),
                       Text(
                         healthPercentage > 70 ? 'Healthy' : 'Needs Care',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.black,
+                          color: isDark ? Colors.white : AppColors.black,
                         ),
                       ),
                     ],
@@ -207,12 +213,12 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Plant Metrics',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.black,
+                      color: isDark ? Colors.white : AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -226,8 +232,8 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                           value: '${waterLevel.toStringAsFixed(0)}',
                           unit: '%',
                           status: waterLevel > 50 ? 'Good' : 'Low',
-
                           statusColor: waterLevel > 50 ? AppColors.primaryGreen : Colors.orange,
+                          isDark: isDark,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -240,6 +246,7 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                           unit: 'hrs/day',
                           status: 'Good',
                           statusColor: AppColors.primaryGreen,
+                          isDark: isDark,
                         ),
                       ),
                     ],
@@ -256,6 +263,7 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                           unit: '%',
                           status: soilMoisture > 40 ? 'Good' : 'Low',
                           statusColor: soilMoisture > 40 ? AppColors.primaryGreen : Colors.orange,
+                          isDark: isDark,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -268,6 +276,7 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                           unit: '°C',
                           status: 'Good',
                           statusColor: AppColors.primaryGreen,
+                          isDark: isDark,
                         ),
                       ),
                     ],
@@ -284,12 +293,12 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Care Timeline',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.black,
+                      color: isDark ? Colors.white : AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -298,12 +307,14 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                     iconColor: Colors.blue,
                     title: 'Watered at 7 PM yesterday',
                     subtitle: 'Sep 25, 7:00 PM',
+                    isDark: isDark,
                   ),
                   _TimelineItem(
                     icon: Icons.wb_sunny,
                     iconColor: Colors.amber,
                     title: 'Light boost applied',
                     subtitle: 'Sep 24, 2:30 PM',
+                    isDark: isDark,
                   ),
                   _TimelineItem(
                     icon: Icons.science_outlined,
@@ -311,12 +322,14 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
                     title: 'Fertilizer due in 3 days',
                     subtitle: 'Sep 29',
                     showArrow: true,
+                    isDark: isDark,
                   ),
                   _TimelineItem(
                     icon: Icons.warning_amber,
                     iconColor: Colors.orange,
                     title: 'Soil moisture dropping',
                     subtitle: 'Sep 25, 8:15 AM',
+                    isDark: isDark,
                   ),
                 ],
               ),
@@ -331,104 +344,109 @@ class _PlantDetailEnhancedScreenState extends State<PlantDetailScreen> {
   }
   bool _isPumpOn = false;
   Widget _buildBottomButtons() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: () {
+                final deviceId = _currentPlant['device_id_string']?.toString() ??
+                    _currentPlant['device_id']?.toString() ?? '';
+
+                setState(() {
+                  _isPumpOn = !_isPumpOn; // Toggle state
+                });
+
+                final command = _isPumpOn ? 'on' : 'off';
+                _wsService.sendCommand(deviceId, 'pump', command);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(_isPumpOn ? 'Watering started!' : 'Watering stopped!'),
+                    backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                elevation: 2,
+                shadowColor: Colors.black26,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isPumpOn ? Icons.water_drop : Icons.water_drop_outlined,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Water Now',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ────── Fertilize (unchanged) ──────
+          Expanded(
+            child: _GrayActionButton(
+              icon: Icons.science_outlined,
+              label: 'Fertilize',
+              isDark: isDark,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Fertilize reminder set!')),
+                );
+              },
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // ────── Light Boost (unchanged) ──────
+          Expanded(
+            child: _GrayActionButton(
+              icon: Icons.wb_sunny,
+              label: 'Light Boost',
+              isDark: isDark,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Light boost activated!')),
+                );
+              },
+            ),
           ),
         ],
       ),
-
-    child: Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () {
-              final deviceId = _currentPlant['device_id_string']?.toString() ??
-                  _currentPlant['device_id']?.toString() ?? '';
-
-              setState(() {
-                _isPumpOn = !_isPumpOn; // Toggle state
-              });
-
-              final command = _isPumpOn ? 'on' : 'off';
-              _wsService.sendCommand(deviceId, 'pump', command);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_isPumpOn ? 'Watering started!' : 'Watering stopped!'),
-                  backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isPumpOn ? AppColors.primaryGreen : Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
-              elevation: 2,
-              shadowColor: Colors.black26,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _isPumpOn ? Icons.water_drop : Icons.water_drop_outlined,
-                  size: 24,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Water Now',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        // ────── Fertilize (unchanged) ──────
-        Expanded(
-          child: _GrayActionButton(
-            icon: Icons.science_outlined,
-            label: 'Fertilize',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fertilize reminder set!')),
-              );
-            },
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        // ────── Light Boost (unchanged) ──────
-        Expanded(
-          child: _GrayActionButton(
-            icon: Icons.wb_sunny,
-            label: 'Light Boost',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Light boost activated!')),
-              );
-            },
-          ),
-        ),
-      ],
-    ),
     );
   }
 }
@@ -441,6 +459,7 @@ class _MetricCard extends StatelessWidget {
   final String unit;
   final String status;
   final Color statusColor;
+  final bool isDark;
 
   const _MetricCard({
     required this.icon,
@@ -450,6 +469,7 @@ class _MetricCard extends StatelessWidget {
     required this.unit,
     required this.status,
     required this.statusColor,
+    required this.isDark,
   });
 
   @override
@@ -457,9 +477,11 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +495,7 @@ class _MetricCard extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.grey.withOpacity(0.8),
+                    color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
                   ),
                 ),
               ),
@@ -485,10 +507,10 @@ class _MetricCard extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.black,
+                  color: isDark ? Colors.white : AppColors.black,
                 ),
               ),
               const SizedBox(width: 4),
@@ -498,7 +520,7 @@ class _MetricCard extends StatelessWidget {
                   unit,
                   style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.grey.withOpacity(0.8),
+                    color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
                   ),
                 ),
               ),
@@ -532,6 +554,7 @@ class _TimelineItem extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool showArrow;
+  final bool isDark;
 
   const _TimelineItem({
     required this.icon,
@@ -539,6 +562,7 @@ class _TimelineItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.showArrow = false,
+    required this.isDark,
   });
 
   @override
@@ -563,10 +587,10 @@ class _TimelineItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.black,
+                    color: isDark ? Colors.white : AppColors.black,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -574,7 +598,7 @@ class _TimelineItem extends StatelessWidget {
                   subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.grey.withOpacity(0.8),
+                    color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
                   ),
                 ),
               ],
@@ -584,7 +608,7 @@ class _TimelineItem extends StatelessWidget {
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.primaryGreen,
                 shape: BoxShape.circle,
               ),
@@ -601,18 +625,20 @@ class _GrayActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    required this.isDark,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.grey[100],
+      color: isDark ? const Color(0xFF1A1A1A) : Colors.grey[100],
       borderRadius: BorderRadius.circular(12),
-      elevation: 1,
+      elevation: isDark ? 0 : 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
@@ -621,14 +647,18 @@ class _GrayActionButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.grey[700], size: 24),
+              Icon(
+                icon,
+                color: isDark ? Colors.grey[400] : Colors.grey[700],
+                size: 24,
+              ),
               const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
+                  color: isDark ? Colors.grey[300] : Colors.grey[800],
                 ),
                 textAlign: TextAlign.center,
               ),

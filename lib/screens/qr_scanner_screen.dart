@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../utils/colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -35,21 +37,44 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   void _showManualEntryDialog() {
     final TextEditingController controller = TextEditingController();
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
 
     showDialog(
       context: context,
-      builder: (context) =>
-          AlertDialog(
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            title: const Text('Enter Code Manually'),
+            title: Text(
+              'Enter Code Manually',
+              style: TextStyle(color: isDark ? Colors.white : AppColors.black),
+            ),
             content: TextField(
               controller: controller,
+              style: TextStyle(color: isDark ? Colors.white : AppColors.black),
               decoration: InputDecoration(
                 hintText: 'Enter device ID',
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.grey.shade400 : AppColors.grey,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.grey.shade600 : AppColors.grey,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark ? Colors.grey.shade600 : AppColors.grey,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primaryGreen),
                 ),
               ),
               autofocus: true,
@@ -57,18 +82,24 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: isDark ? Colors.grey.shade400 : AppColors.grey,
+                  ), // ✅ Add
+                ),
               ),
               TextButton(
                 onPressed: () {
-                  if (controller.text
-                      .trim()
-                      .isNotEmpty) {
+                  if (controller.text.trim().isNotEmpty) {
                     Navigator.pop(context);
                     Navigator.pop(context, controller.text.trim());
                   }
                 },
-                child: const Text('OK'),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(color: AppColors.primaryGreen),
+                ),
               ),
             ],
           ),
@@ -77,43 +108,68 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ ADD THESE TWO LINES:
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : AppColors.black,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Scan QR Code',
           style: TextStyle(
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.black),
+            icon: Icon(
+              Icons.help_outline,
+              color: isDark ? Colors.white : AppColors.black,
+            ),
             onPressed: () {
               showDialog(
                 context: context,
-                builder: (context) =>
-                    AlertDialog(
+                builder:
+                    (context) => AlertDialog(
+                      backgroundColor:
+                          isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                      // ✅ Add
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      title: const Text('How to Scan'),
-                      content: const Text(
+                      title: Text(
+                        'How to Scan',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.black,
+                        ), // ✅ Add
+                      ),
+                      content: Text(
                         'Point your camera at the QR code on your device. '
-                            'The code will be scanned automatically when it\'s in focus.',
+                        'The code will be scanned automatically when it\'s in focus.',
+                        style: TextStyle(
+                          color:
+                              isDark ? Colors.grey.shade300 : AppColors.black,
+                        ), // ✅ Add
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('OK'),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(color: AppColors.primaryGreen),
+                          ),
                         ),
                       ],
                     ),
@@ -132,10 +188,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               margin: const EdgeInsets.only(bottom: 100),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.primaryGreen,
-                  width: 3,
-                ),
+                border: Border.all(color: AppColors.primaryGreen, width: 3),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(17),
@@ -148,10 +201,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ),
 
           // Scanner Overlay with corners
-          CustomPaint(
-            painter: ScannerOverlay(),
-            child: Container(),
-          ),
+          CustomPaint(painter: ScannerOverlay(), child: Container()),
 
           // Instruction Text
           Positioned(
@@ -161,13 +211,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
-                child: const Text(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Text(
                   'Align the QR code within the frame to add your plant.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.grey,
+                    color: isDark ? Colors.grey.shade300 : AppColors.grey,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -194,8 +246,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                       style: TextStyle(fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF0F0F0),
-                      foregroundColor: AppColors.black,
+                      backgroundColor:
+                          isDark
+                              ? const Color(0xFF2A2A2A)
+                              : const Color(0xFFF0F0F0),
+                      // ✅ Update
+                      foregroundColor: isDark ? Colors.white : AppColors.black,
+                      // ✅ Update
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -211,15 +268,21 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                   // Torch Toggle Button
                   Container(
                     decoration: BoxDecoration(
-                      color: _torchEnabled
-                          ? AppColors.primaryGreen
-                          : const Color(0xFFF0F0F0),
+                      color:
+                          _torchEnabled
+                              ? AppColors.primaryGreen
+                              : (isDark
+                                  ? const Color(0xFF2A2A2A)
+                                  : const Color(0xFFF0F0F0)),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
                       icon: Icon(
                         _torchEnabled ? Icons.flash_on : Icons.flash_off,
-                        color: _torchEnabled ? Colors.white : AppColors.black,
+                        color:
+                            _torchEnabled
+                                ? Colors.white
+                                : (isDark ? Colors.white : AppColors.black),
                       ),
                       onPressed: () {
                         setState(() => _torchEnabled = !_torchEnabled);
@@ -238,15 +301,19 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
         ],
       ),
       child: SafeArea(
@@ -255,13 +322,24 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home, 'Home', false, 0),
-              _buildNavItem(Icons.qr_code_scanner, 'Scan', true, 1),
-              _buildNavItem(Icons.tune, 'Control', false, 2),
+              _buildNavItem(Icons.home, 'Home', false, 0, isDark),
+              _buildNavItem(Icons.qr_code_scanner, 'Scan', true, 1, isDark),
+              _buildNavItem(Icons.tune, 'Control', false, 2, isDark),
               _buildNavItem(
-                  Icons.notifications_outlined, 'Notifications', false, 3),
-              _buildNavItem(Icons.person_outline, 'Profile', false, 4),
-              _buildNavItem(Icons.emoji_events_outlined, 'Rewards', false, 5),
+                Icons.notifications_outlined,
+                'Notifications',
+                false,
+                3,
+                isDark,
+              ),
+              _buildNavItem(Icons.person_outline, 'Profile', false, 4, isDark),
+              _buildNavItem(
+                Icons.emoji_events_outlined,
+                'Rewards',
+                false,
+                5,
+                isDark,
+              ),
             ],
           ),
         ),
@@ -269,8 +347,14 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isSelected,
-      int index) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    bool isSelected,
+    int index,
+    bool isDark,
+  ) {
+    // ✅ Add bool isDark
     return GestureDetector(
       onTap: () {
         if (index == 1) {
@@ -288,7 +372,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? AppColors.primaryGreen : AppColors.grey,
+              color:
+                  isSelected
+                      ? AppColors.primaryGreen
+                      : (isDark ? Colors.grey.shade400 : AppColors.grey),
+              // ✅ Update
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -296,7 +384,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? AppColors.primaryGreen : AppColors.grey,
+                color:
+                    isSelected
+                        ? AppColors.primaryGreen
+                        : (isDark ? Colors.grey.shade400 : AppColors.grey),
+                // ✅ Update
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -316,10 +408,11 @@ class ScannerOverlay extends CustomPainter {
       height: 300,
     );
 
-    final cornerPaint = Paint()
-      ..color = AppColors.primaryGreen
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+    final cornerPaint =
+        Paint()
+          ..color = AppColors.primaryGreen
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4;
 
     const cornerLength = 30.0;
 

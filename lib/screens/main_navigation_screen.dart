@@ -5,6 +5,8 @@ import 'notifications_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'profile_screen.dart';
 import 'control_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -46,19 +48,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(isDark),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -73,12 +77,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home, 'Home', 0),
-              _buildNavItem(Icons.qr_code_scanner, 'Scan', 1),
-              _buildNavItem(Icons.tune, 'Control', 2),
-              _buildNavItem(Icons.notifications_outlined, 'Notifications', 3),
-              _buildNavItem(Icons.person_outline, 'Profile', 4),
-              _buildNavItem(Icons.emoji_events_outlined, 'Rewards', 5),
+              _buildNavItem(Icons.home, 'Home', 0, isDark),
+              _buildNavItem(Icons.qr_code_scanner, 'Scan', 1, isDark),
+              _buildNavItem(Icons.tune, 'Control', 2, isDark),
+              _buildNavItem(Icons.notifications_outlined, 'Notifications', 3, isDark),
+              _buildNavItem(Icons.person_outline, 'Profile', 4, isDark),
+              _buildNavItem(Icons.emoji_events_outlined, 'Rewards', 5, isDark),
             ],
           ),
         ),
@@ -86,7 +90,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, bool isDark) {
     final isSelected = _selectedIndex == index;
     return GestureDetector(
       onTap: () => _onItemTapped(index),
@@ -129,15 +133,17 @@ class PlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         elevation: 0,
         title: Text(
           title,
-          style: const TextStyle(
-            color: AppColors.black,
+          style: TextStyle(
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -155,10 +161,10 @@ class PlaceholderScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               '$title Screen',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: AppColors.black,
+                color: isDark ? Colors.white : AppColors.black,
               ),
             ),
             const SizedBox(height: 8),
@@ -166,7 +172,7 @@ class PlaceholderScreen extends StatelessWidget {
               'Coming soon...',
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.grey.withOpacity(0.8),
+                color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
               ),
             ),
           ],

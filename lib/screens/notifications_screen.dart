@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -78,16 +80,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -95,7 +100,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: AppColors.black),
+            icon: Icon(Icons.filter_list, color: isDark ? Colors.white : AppColors.black),
             onPressed: () {
               _showFilterDialog();
             },
@@ -107,27 +112,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return _NotificationSection(
             title: entry.key,
             notifications: entry.value,
+            isDark: isDark,
           );
         }).toList(),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Scroll to top or refresh
-          setState(() {});
-        },
-        backgroundColor: Colors.white,
-        elevation: 4,
-        child: Icon(
-          Icons.dark_mode_outlined,
-          color: AppColors.grey,
-        ),
       ),
     );
   }
 
   void _showFilterDialog() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -138,20 +136,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Filter Notifications',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.black,
+                  color: isDark ? Colors.white : AppColors.black,
                 ),
               ),
               const SizedBox(height: 20),
-              _FilterOption('All Notifications', true),
-              _FilterOption('Unread Only', false),
-              _FilterOption('Water Reminders', false),
-              _FilterOption('Rewards', false),
-              _FilterOption('Alerts', false),
+              _FilterOption('All Notifications', true, isDark),
+              _FilterOption('Unread Only', false, isDark),
+              _FilterOption('Water Reminders', false, isDark),
+              _FilterOption('Rewards', false, isDark),
+              _FilterOption('Alerts', false, isDark),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -187,10 +185,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _NotificationSection extends StatelessWidget {
   final String title;
   final List<Map<String, dynamic>> notifications;
+  final bool isDark;
 
   const _NotificationSection({
     required this.title,
     required this.notifications,
+    required this.isDark,
   });
 
   @override
@@ -201,13 +201,13 @@ class _NotificationSection extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.grey.shade100,
+          color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade100,
           child: Text(
             title,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: AppColors.grey.withOpacity(0.8),
+              color: isDark ? Colors.grey.shade400 : AppColors.grey.withOpacity(0.8),
             ),
           ),
         ),
@@ -218,6 +218,7 @@ class _NotificationSection extends StatelessWidget {
             title: notification['title'],
             time: notification['time'],
             isUnread: notification['isUnread'],
+            isDark: isDark,
           );
         }).toList(),
       ],
@@ -231,6 +232,7 @@ class _NotificationItem extends StatelessWidget {
   final String title;
   final String time;
   final bool isUnread;
+  final bool isDark;
 
   const _NotificationItem({
     required this.icon,
@@ -238,12 +240,13 @@ class _NotificationItem extends StatelessWidget {
     required this.title,
     required this.time,
     required this.isUnread,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
@@ -260,7 +263,7 @@ class _NotificationItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
           ),
         ),
         trailing: Row(
@@ -270,7 +273,7 @@ class _NotificationItem extends StatelessWidget {
               time,
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.grey.withOpacity(0.8),
+                color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
               ),
             ),
             const SizedBox(width: 8),
@@ -296,8 +299,9 @@ class _NotificationItem extends StatelessWidget {
 class _FilterOption extends StatelessWidget {
   final String label;
   final bool isSelected;
+  final bool isDark;
 
-  const _FilterOption(this.label, this.isSelected);
+  const _FilterOption(this.label, this.isSelected, this.isDark);
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +311,7 @@ class _FilterOption extends StatelessWidget {
         children: [
           Icon(
             isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-            color: isSelected ? AppColors.primaryGreen : AppColors.grey,
+            color: isSelected ? AppColors.primaryGreen : (isDark ? Colors.grey.shade400 : AppColors.grey),
           ),
           const SizedBox(width: 12),
           Text(
@@ -315,7 +319,7 @@ class _FilterOption extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: AppColors.black,
+              color: isDark ? Colors.white : AppColors.black,
             ),
           ),
         ],

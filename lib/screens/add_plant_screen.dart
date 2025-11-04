@@ -4,6 +4,8 @@ import '../widgets/custom_text_field.dart';
 import '../widgets/custom_button.dart';
 import '../services/api_service.dart';
 import 'qr_scanner_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class AddPlantScreen extends StatefulWidget {
   const AddPlantScreen({super.key});
@@ -20,7 +22,6 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
   String _selectedPlantType = 'Aloe Vera';
   bool _isLoading = false;
-  bool _isDarkMode = false;
 
   final List<String> _plantTypes = [
     'Aloe Vera',
@@ -103,34 +104,27 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white : AppColors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Add Plant',
           style: TextStyle(
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-              color: AppColors.grey,
-            ),
-            onPressed: () {
-              setState(() => _isDarkMode = !_isDarkMode);
-            },
-          ),
-        ],
+
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -157,40 +151,94 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              CustomTextField(
-                label: 'Plant Name',
-                hint: 'E.g., Fern Gully',
-                controller: _plantNameController,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Plant Name',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : AppColors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _plantNameController,
+                    style: TextStyle(color: isDark ? Colors.white : AppColors.black),
+                    decoration: InputDecoration(
+                      hintText: 'E.g., Fern Gully',
+                      hintStyle: TextStyle(
+                        color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.5),
+                        fontSize: 13,
+                      ),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryGreen,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Plant Type',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.black,
+                      color: isDark ? Colors.white : AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: AppColors.white,
+                      color: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.textFieldBorder),
+                      border: Border.all(
+                        color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
+                      ),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _selectedPlantType,
                         isExpanded: true,
-                        icon: const Icon(Icons.keyboard_arrow_down),
+                        icon: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: isDark ? Colors.white : AppColors.black,
+                        ),
+                        dropdownColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
                         items: _plantTypes.map((String type) {
                           return DropdownMenuItem<String>(
                             value: type,
-                            child: Text(type),
+                            child: Text(
+                              type,
+                              style: TextStyle(color: isDark ? Colors.white : AppColors.black),
+                            ),
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
@@ -207,21 +255,22 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Device ID',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.black,
+                      color: isDark ? Colors.white : AppColors.black,
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _deviceIdController,
+                    style: TextStyle(color: isDark ? Colors.white : AppColors.black),
                     decoration: InputDecoration(
                       hintText: 'Enter device ID or scan QR code',
                       hintStyle: TextStyle(
-                        color: AppColors.grey.withOpacity(0.5),
+                        color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.5),
                         fontSize: 13,
                       ),
                       suffixIcon: IconButton(
@@ -242,17 +291,17 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                         },
                       ),
                       filled: true,
-                      fillColor: AppColors.white,
+                      fillColor: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.textFieldBorder,
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.textFieldBorder,
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -271,25 +320,74 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              CustomTextField(
-                label: 'Location',
-                hint: 'E.g., Living Room',
-                controller: _locationController,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Location',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : AppColors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _locationController,
+                    style: TextStyle(color: isDark ? Colors.white : AppColors.black),
+                    decoration: InputDecoration(
+                      hintText: 'E.g., Living Room',
+                      hintStyle: TextStyle(
+                        color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.5),
+                        fontSize: 13,
+                      ),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey.shade600 : AppColors.textFieldBorder,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryGreen,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               OutlinedButton.icon(
                 onPressed: () {
                   // TODO: Implement image picker
                 },
-                icon: const Icon(Icons.photo_camera, color: AppColors.grey),
-                label: const Text(
+                icon: Icon(
+                  Icons.photo_camera,
+                  color: isDark ? Colors.grey.shade400 : AppColors.grey,
+                ),
+                label: Text(
                   'Add Photo (Optional)',
-                  style: TextStyle(color: AppColors.grey),
+                  style: TextStyle(color: isDark ? Colors.grey.shade400 : AppColors.grey),
                 ),
                 style: OutlinedButton.styleFrom(
+                  backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
                   minimumSize: const Size(double.infinity, 56),
                   side: BorderSide(
-                    color: AppColors.grey.withOpacity(0.3),
+                    color: (isDark ? Colors.grey.shade600 : AppColors.grey).withOpacity(0.3),
                     style: BorderStyle.solid,
                     width: 1.5,
                   ),
@@ -311,17 +409,20 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 child: OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
+                    backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    side: BorderSide(color: AppColors.grey.withOpacity(0.3)),
+                    side: BorderSide(
+                      color: (isDark ? Colors.grey.shade600 : AppColors.grey).withOpacity(0.3),
+                    ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.grey,
+                      color: isDark ? Colors.grey.shade400 : AppColors.grey,
                     ),
                   ),
                 ),

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/splash_screen.dart';
 import 'utils/colors.dart';
 
 void main() {
-  runApp(const ClayxApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const ClayxApp(),
+    ),
+  );
 }
 
 class ClayxApp extends StatelessWidget {
@@ -12,19 +19,23 @@ class ClayxApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Clayx Smart Planter',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: AppColors.primaryGreen,
-        scaffoldBackgroundColor: AppColors.white,
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryGreen,
-          brightness: Brightness.light,
-        ),
-      ),
-      home: const SplashScreen(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Clayx Smart Planter',
+          debugShowCheckedModeBanner: false,
+          theme: themeProvider.lightTheme.copyWith(
+            textTheme: GoogleFonts.poppinsTextTheme(),
+          ),
+          darkTheme: themeProvider.darkTheme.copyWith(
+            textTheme: GoogleFonts.poppinsTextTheme(
+              ThemeData.dark().textTheme,
+            ),
+          ),
+          themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

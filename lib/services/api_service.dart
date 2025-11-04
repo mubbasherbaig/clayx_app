@@ -70,6 +70,33 @@ class ApiService {
     };
   }
 
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final headers = await getHeaders();
+      final response = await http.put(
+        Uri.parse('$baseUrl/auth/change-password'),
+        headers: headers,
+        body: jsonEncode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Failed to change password');
+      }
+    } catch (e) {
+      throw Exception('Connection error: ${e.toString()}');
+    }
+  }
+
   // ==================== AUTHENTICATION ====================
 
   Future<Map<String, dynamic>> register({

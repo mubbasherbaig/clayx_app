@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/websocket_service.dart';
 import '../utils/colors.dart';
 import '../services/api_service.dart';
+import 'activity_history_screen.dart';
 import 'add_plant_screen.dart';
+import 'my_plants_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,7 +25,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   String _userName = 'User';
   int _selectedPlantIndex = 0;
-  bool _isDarkMode = false;
 
   StreamSubscription<Map<String, dynamic>>? _sensorSubscription;
   StreamSubscription<Map<String, dynamic>>? _deviceStatusSubscription;
@@ -170,59 +173,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  // NEW: Setup WebSocket listeners
-  void _setupWebSocketListeners() {
-    // Listen for sensor updates
-    _sensorSubscription = _wsService.sensorDataStream.listen((data) {
-      print('[DASHBOARD] Sensor update received: $data');
-      _updatePlantSensorData(data);
-    });
-
-    // Listen for device status changes
-    _deviceStatusSubscription = _wsService.deviceStatusStream.listen((data) {
-      print('[DASHBOARD] Device status: $data');
-      _updateDeviceStatus(data);
-    });
-  }
-
-  // NEW: Update plant sensor data from WebSocket
-  void _updatePlantSensorData(Map<String, dynamic> data) {
-    if (!mounted) return;
-
-    final plantId = data['plantId'];
-    final sensorData = data['data'];
-
-    setState(() {
-      for (var i = 0; i < _plants.length; i++) {
-        if (_plants[i]['id'] == plantId) {
-          _plants[i]['temperature'] = sensorData['temperature'];
-          _plants[i]['humidity'] = sensorData['humidity'];
-          _plants[i]['soil_moisture'] = sensorData['soil_moisture'];
-          _plants[i]['water_level'] = sensorData['water_level'];
-          _plants[i]['light_level'] = sensorData['light_level'];
-          break;
-        }
-      }
-    });
-  }
-
-  // NEW: Update device online status
-  void _updateDeviceStatus(Map<String, dynamic> data) {
-    if (!mounted) return;
-
-    final deviceId = data['deviceId'];
-    final isOnline = data['isOnline'];
-
-    setState(() {
-      for (var plant in _plants) {
-        if (plant['device_id'] == deviceId) {
-          plant['is_online'] = isOnline;
-        }
-      }
-    });
-  }
-
-  // Load initial data (only once, then WebSocket handles updates)
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
 
@@ -300,9 +250,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       body: SafeArea(
+
         child:
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -313,14 +266,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTopBar(),
-                        _buildGreetingSection(),
+                        _buildTopBar(isDark),
+                        _buildGreetingSection(isDark),
                         const SizedBox(height: 24),
-                        _buildYourPlantsSection(),
+                        _buildYourPlantsSection(isDark),
                         const SizedBox(height: 24),
-                        _buildQuickActions(),
+                        _buildQuickActions(isDark),
                         const SizedBox(height: 24),
-                        _buildAchievements(),
+                        _buildAchievements(isDark),
                         const SizedBox(height: 100),
                       ],
                     ),
@@ -330,7 +283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -353,12 +306,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Smart Planter',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.black,
+                  color: isDark ? Colors.white : AppColors.black,
                 ),
               ),
             ],
@@ -400,25 +353,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(
-                  _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: AppColors.grey,
-                  size: 20,
-                ),
-                onPressed: () {
-                  setState(() => _isDarkMode = !_isDarkMode);
-                },
-              ),
+
               Stack(
                 children: [
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.notifications_outlined,
-                      color: AppColors.grey,
+                      color: isDark ? Colors.grey.shade400 : AppColors.grey,
                       size: 20,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ActivityHistoryScreen(),
+                        ),
+                      );
+                    },
                   ),
                   Positioned(
                     right: 10,
@@ -441,43 +392,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildGreetingSection() {
+  Widget _buildGreetingSection(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
-      color: AppColors.backgroundColor,
+      color: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           RichText(
             text: TextSpan(
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.normal,
-                color: AppColors.black,
+                color: isDark ? Colors.white : AppColors.black,
               ),
               children: [
                 TextSpan(text: '${_getGreeting()}, '),
                 TextSpan(
                   text: _userName.split(' ')[0], // Only first name
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold, // Make name bold (optional)
-                    color: AppColors.black,
+                    color: isDark ? Colors.white : AppColors.black,
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Your plants are looking great today!',
-            style: TextStyle(fontSize: 14, color: AppColors.grey),
+            style: TextStyle(fontSize: 14, color: isDark ? Colors.grey.shade400 : AppColors.grey),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildToggleButton('Show Empty State', false),
+              _buildToggleButton('Show Empty State', false, isDark),
               const SizedBox(width: 12),
-              _buildToggleButton('Show Plants', true),
+              _buildToggleButton('Show Plants', true, isDark),
             ],
           ),
         ],
@@ -485,11 +436,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildToggleButton(String text, bool isActive) {
+  Widget _buildToggleButton(String text, bool isActive, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? AppColors.primaryGreen : const Color(0xFFF0F0F0),
+        color: isActive
+            ? AppColors.primaryGreen
+            : (isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0)),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -503,14 +456,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildYourPlantsSection() {
+  Widget _buildYourPlantsSection(bool isDark) {
     if (_plants.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Container(
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(
@@ -522,16 +475,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: AppColors.grey.withOpacity(0.3),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'No plants yet',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppColors.black,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Add your first plant to get started',
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.grey.withOpacity(0.8),
+                    color: isDark ? Colors.grey.shade400 : AppColors.grey.withOpacity(0.8),
                   ),
                 ),
               ],
@@ -549,16 +506,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Your Plants',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.black,
+                  color: isDark ? Colors.white : AppColors.black,
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MyPlantsScreen(showBottomNav: false),
+                    ),
+                  );
+                },
                 child: const Text(
                   'View all',
                   style: TextStyle(
@@ -609,13 +573,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildPlantCard(_plants[_selectedPlantIndex]),
+          _buildPlantCard(_plants[_selectedPlantIndex], isDark),
         ],
       ),
     );
   }
 
-  Widget _buildPlantCard(Map<String, dynamic> plant) {
+  Widget _buildPlantCard(Map<String, dynamic> plant, bool isDark) {
     final soilMoisture = _toDouble(plant['soil_moisture']);
     final temperature = _toDouble(plant['temperature']);
     final waterLevel = _toDouble(plant['water_level']);
@@ -628,7 +592,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F7F4),
+        color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F7F4),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -639,7 +603,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -655,10 +619,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       plant['plant_name'] ?? 'Unknown',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.black,
+                        color: isDark ? Colors.white : AppColors.black,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -703,7 +667,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   value: '${soilMoisture.toStringAsFixed(1)}%',
                   color:
                       soilMoisture < 30 ? Colors.red : AppColors.primaryGreen,
-                  isWarning: soilMoisture < 30,
+                  isWarning: soilMoisture < 30, isDark: isDark,
                 ),
               ),
               const SizedBox(width: 12),
@@ -714,7 +678,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   value: _getLightStatusFromValue(lightLevel),
                   color: AppColors.primaryGreen,
                   isWarning: false,
-                  showCheck: lightLevel > 0,
+                  showCheck: lightLevel > 0, isDark: isDark,
                 ),
               ),
             ],
@@ -729,7 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   value: '${soilMoisture.toStringAsFixed(1)}%',
                   color: AppColors.primaryGreen,
                   isWarning: soilMoisture < 30,
-                  showCheck: soilMoisture > 30,
+                  showCheck: soilMoisture > 30, isDark: isDark,
                 ),
               ),
               const SizedBox(width: 12),
@@ -740,7 +704,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   value: '${temperature.toStringAsFixed(0)}°C',
                   color: AppColors.primaryGreen,
                   isWarning: false,
-                  showCheck: true,
+                  showCheck: true, isDark: isDark,
                 ),
               ),
             ],
@@ -756,7 +720,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     value: '${humidity.toStringAsFixed(1)}%',
                     color: AppColors.primaryGreen,
                     isWarning: false,
-                    showCheck: true,
+                    showCheck: true, isDark: isDark,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -784,11 +748,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required Color color,
     required bool isWarning,
     bool showCheck = false,
+    required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -827,18 +792,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quick Actions',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: AppColors.black,
+              color: isDark ? Colors.white : AppColors.black,
             ),
           ),
           const SizedBox(height: 16),
@@ -849,6 +814,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.add,
                 label: 'Add Plant',
                 color: AppColors.primaryGreen,
+                isDark: isDark,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -866,12 +832,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 icon: Icons.water_drop,
                 label: 'Water Now',
                 color: const Color(0xFF3B82F6),
+                isDark: isDark,
                 onTap: () {},
               ),
               _buildActionButton(
                 icon: Icons.wb_sunny,
                 label: 'Light Control',
                 color: const Color(0xFFFBBF24),
+                isDark: isDark,
                 onTap: () {},
               ),
             ],
@@ -886,6 +854,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    required bool isDark,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -903,32 +872,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: AppColors.grey),
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.grey.shade400 : AppColors.grey,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAchievements() {
+  Widget _buildAchievements(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your Achievements',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: AppColors.black,
+              color: isDark ? Colors.white : AppColors.black,
             ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -952,14 +924,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Reward Points',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.grey,
+                                  color: isDark ? Colors.white : AppColors.black,
                                 ),
                               ),
                               Text(
@@ -967,7 +939,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.black,
+                                  color: isDark ? Colors.white : AppColors.black,
                                 ),
                               ),
                             ],
@@ -995,19 +967,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Plants Saved',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.grey,
+                                  color: isDark ? Colors.white : AppColors.black,
                                 ),
                               ),
                               Text(
                                 '${_plants.length}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.black,
+                                  color: isDark ? Colors.white : AppColors.black,
                                 ),
                               ),
                             ],
@@ -1021,19 +993,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'Next Reward: 1000 pts',
-                          style: TextStyle(fontSize: 12, color: AppColors.grey),
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.white : AppColors.black,),
                         ),
                         Text(
                           '75%',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.black,
+                            color: isDark ? Colors.white : AppColors.black,
                           ),
                         ),
                       ],

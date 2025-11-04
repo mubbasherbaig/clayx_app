@@ -5,6 +5,8 @@ import 'dart:async';
 import '../services/websocket_service.dart';
 import '../services/api_service.dart';
 import '../utils/colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -270,15 +272,17 @@ class _ControlScreenState extends State<ControlScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Device Control',
           style: TextStyle(
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -321,21 +325,21 @@ class _ControlScreenState extends State<ControlScreen> {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _plants.isEmpty
-              ? _buildEmptyState()
+              ? _buildEmptyState(isDark)
               : RefreshIndicator(
                 onRefresh: _loadPlants,
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _plants.length,
                   itemBuilder: (context, index) {
-                    return _buildPlantControlCard(_plants[index]);
+                    return _buildPlantControlCard(_plants[index], isDark);
                   },
                 ),
               ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -346,21 +350,27 @@ class _ControlScreenState extends State<ControlScreen> {
             color: AppColors.grey.withOpacity(0.3),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No plants found',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppColors.black,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Add a plant to control devices',
-            style: TextStyle(color: AppColors.grey.withOpacity(0.8)),
+            style: TextStyle(
+              color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlantControlCard(Map<String, dynamic> plant) {
+  Widget _buildPlantControlCard(Map<String, dynamic> plant, bool isDark) {
     final isOnline = plant['is_online'] ?? false;
     final soilMoisture = _toDouble(plant['soil_moisture']);
     final humidity = _toDouble(plant['humidity']);
@@ -384,7 +394,7 @@ class _ControlScreenState extends State<ControlScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -425,7 +435,10 @@ class _ControlScreenState extends State<ControlScreen> {
                           decoration: BoxDecoration(
                             color: Colors.green,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                                color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+                                width: 2
+                            ),
                           ),
                         ),
                       ),
@@ -440,10 +453,10 @@ class _ControlScreenState extends State<ControlScreen> {
                     children: [
                       Text(
                         plant['plant_name'] ?? 'Unknown',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.black,
+                          color: isDark ? Colors.white : AppColors.black,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -484,11 +497,11 @@ class _ControlScreenState extends State<ControlScreen> {
                         inactiveTrackColor: AppColors.grey.withOpacity(0.3),
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Water',
                       style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.black,
+                        color: isDark ? Colors.white : AppColors.black,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -498,7 +511,7 @@ class _ControlScreenState extends State<ControlScreen> {
             ),
 
             const SizedBox(height: 24),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            Divider(height: 1, color: isDark ? Colors.grey.shade800 : const Color(0xFFE5E7EB),),
             const SizedBox(height: 16),
 
             // Bottom Row: Controls and Progress
@@ -506,9 +519,9 @@ class _ControlScreenState extends State<ControlScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Control Icons
-                _buildIconMetric(Icons.wb_sunny, 'Light'),
+                _buildIconMetric(Icons.wb_sunny, 'Light', isDark),
                 const SizedBox(width: 20),
-                _buildIconMetric(Icons.water_drop, 'Humidity'),
+                _buildIconMetric(Icons.water_drop, 'Humidity', isDark),
 
                 const Spacer(),
 
@@ -518,9 +531,9 @@ class _ControlScreenState extends State<ControlScreen> {
                   children: [
                     Text(
                       _getTimeAgo(lastSeen),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.grey,
+                        color: isDark ? Colors.grey.shade400 : AppColors.grey,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -547,10 +560,10 @@ class _ControlScreenState extends State<ControlScreen> {
                         const SizedBox(width: 8),
                         Text(
                           '${soilMoisture.toStringAsFixed(0)} %',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.black,
+                            color: isDark ? Colors.white : AppColors.black,
                           ),
                         ),
                       ],
@@ -565,14 +578,14 @@ class _ControlScreenState extends State<ControlScreen> {
     );
   }
 
-  Widget _buildIconMetric(IconData icon, String label) {
+  Widget _buildIconMetric(IconData icon, String label, bool isDark) {
     return Column(
       children: [
-        Icon(icon, color: AppColors.grey, size: 24),
+        Icon(icon, color: isDark ? Colors.grey.shade400 : AppColors.grey, size: 24),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: AppColors.grey),
+          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey.shade400 : AppColors.grey,),
         ),
       ],
     );

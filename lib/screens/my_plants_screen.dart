@@ -5,6 +5,8 @@ import '../services/api_service.dart';
 import '../services/websocket_service.dart';
 import 'plant_detail_screen.dart';
 import 'add_plant_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class MyPlantsScreen extends StatefulWidget {
   final bool showBottomNav;
@@ -45,6 +47,10 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
 
   Future<void> _connectWebSocket() async {
     await _wsService.connect();
+
+    if (mounted) {
+      setState(() => _isWsConnected = _wsService.isConnected);
+    }
 
     // Listen for connection status
     _connectionSubscription = _wsService.connectionStream.listen((connected) {
@@ -173,10 +179,12 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: isDark ? const Color(0xFF1A1A1A) : AppColors.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
         elevation: 0,
         automaticallyImplyLeading: widget.showBottomNav,
         leading: widget.showBottomNav
@@ -185,10 +193,10 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
           onPressed: () => Navigator.pop(context),
         )
             : null,
-        title: const Text(
+        title: Text(
           'My Plants',
           style: TextStyle(
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -226,13 +234,13 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.filter_list, color: AppColors.black),
+            icon: Icon(Icons.filter_list, color: isDark ? Colors.white : AppColors.black),
             onPressed: () {
               // TODO: Implement filtering
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.black),
+            icon: Icon(Icons.refresh, color: isDark ? Colors.white : AppColors.black),
             onPressed: _loadPlants,
           ),
         ],
@@ -240,7 +248,7 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _plants.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(isDark)
           : RefreshIndicator(
         onRefresh: _loadPlants,
         child: ListView.builder(
@@ -249,12 +257,13 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
           itemBuilder: (context, index) {
             return _PlantCard(
               plant: _plants[index],
+              isDark: isDark,
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => PlantDetailScreen(
-                      plant: Plant.fromJson(_plants[index]),
+                      plant: _plants[index],
                     ),
                   ),
                 ).then((_) => _loadPlants());
@@ -283,7 +292,7 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -291,15 +300,15 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
           Icon(
             Icons.eco_outlined,
             size: 100,
-            color: AppColors.grey.withOpacity(0.3),
+            color: (isDark ? Colors.grey.shade600 : AppColors.grey).withOpacity(0.3),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'No plants yet',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.black,
+              color: isDark ? Colors.white : AppColors.black,
             ),
           ),
           const SizedBox(height: 8),
@@ -307,7 +316,7 @@ class _MyPlantsScreenState extends State<MyPlantsScreen> {
             'Add your first plant to get started',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.grey.withOpacity(0.8),
+              color: (isDark ? Colors.grey.shade400 : AppColors.grey).withOpacity(0.8),
             ),
           ),
           const SizedBox(height: 24),
@@ -389,10 +398,12 @@ class Plant {
 class _PlantCard extends StatelessWidget {
   final Map<String, dynamic> plant;
   final VoidCallback onTap;
+  final bool isDark;
 
   const _PlantCard({
     required this.plant,
     required this.onTap,
+    required this.isDark,
   });
 
   double _toDouble(dynamic value) {
@@ -420,9 +431,10 @@ class _PlantCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: isDark ? const Color(0xFF2A2A2A) : AppColors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
+            if (!isDark)
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
@@ -472,10 +484,10 @@ class _PlantCard extends StatelessWidget {
                     children: [
                       Text(
                         plant['plant_name'] ?? 'Unknown',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.black,
+                          color: isDark ? Colors.white : AppColors.black,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -507,7 +519,7 @@ class _PlantCard extends StatelessWidget {
                 // Arrow Icon
                 Icon(
                   Icons.chevron_right,
-                  color: AppColors.grey.withOpacity(0.5),
+                  color: (isDark ? Colors.grey.shade600 : AppColors.grey).withOpacity(0.5),
                 ),
               ],
             ),
@@ -523,24 +535,28 @@ class _PlantCard extends StatelessWidget {
                   label: 'Soil',
                   value: '${soilMoisture.toStringAsFixed(1)}%',
                   color: Colors.brown,
+                  isDark: isDark,
                 ),
                 _MetricItem(
                   icon: Icons.water_drop,
                   label: 'Humidity',
                   value: '${humidity.toStringAsFixed(1)}%',
                   color: Colors.orange,
+                  isDark: isDark,
                 ),
                 _MetricItem(
                   icon: Icons.light_mode,
                   label: 'Light',
                   value: lightLevel,
                   color: Colors.amber,
+                  isDark: isDark,
                 ),
                 _MetricItem(
                   icon: Icons.thermostat,
                   label: 'Temp',
                   value: '${temperature.toStringAsFixed(1)}°C',
                   color: AppColors.primaryGreen,
+                  isDark: isDark,
                 ),
               ],
             ),
@@ -556,12 +572,14 @@ class _MetricItem extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final bool isDark;
 
   const _MetricItem({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
+    required this.isDark,
   });
 
   @override
@@ -580,10 +598,10 @@ class _MetricItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.black,
+            color: isDark ? Colors.white : AppColors.black,
           ),
         ),
       ],

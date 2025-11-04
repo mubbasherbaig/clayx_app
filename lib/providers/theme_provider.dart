@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/colors.dart';
 
 class ThemeProvider extends ChangeNotifier {
   bool _isDarkMode = false;
@@ -32,23 +33,118 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   ThemeData get lightTheme => ThemeData(
+    useMaterial3: true,
     brightness: Brightness.light,
-    primaryColor: const Color(0xFF27AE60),
-    scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+    primaryColor: AppColors.primaryGreen,
+    scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+    cardColor: Colors.white,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF27AE60),
+      seedColor: AppColors.primaryGreen,
       brightness: Brightness.light,
+      primary: AppColors.primaryGreen,
+      secondary: AppColors.primaryGreen,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: AppColors.black,
+      elevation: 0,
+      iconTheme: IconThemeData(color: AppColors.black),
+    ),
+    // cardTheme: CardTheme(
+    //   color: Colors.white,
+    //   elevation: 0,
+    //   shape: RoundedRectangleBorder(
+    //     borderRadius: BorderRadius.circular(12),
+    //   ),
+    // ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.textFieldBorder),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.textFieldBorder),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     ),
   );
 
   ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
     brightness: Brightness.dark,
-    primaryColor: const Color(0xFF27AE60),
+    primaryColor: AppColors.primaryGreen,
     scaffoldBackgroundColor: const Color(0xFF1A1A1A),
     cardColor: const Color(0xFF2A2A2A),
     colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF27AE60),
+      seedColor: AppColors.primaryGreen,
       brightness: Brightness.dark,
+      primary: AppColors.primaryGreen,
+      secondary: AppColors.primaryGreen,
+      surface: const Color(0xFF2A2A2A),
+      background: const Color(0xFF1A1A1A),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF2A2A2A),
+      foregroundColor: Colors.white,
+      elevation: 0,
+      iconTheme: IconThemeData(color: Colors.white),
+    ),
+    // cardTheme: CardTheme(
+    //   color: const Color(0xFF2A2A2A),
+    //   elevation: 0,
+    //   shape: RoundedRectangleBorder(
+    //     borderRadius: BorderRadius.circular(12),
+    //   ),
+    // ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF2A2A2A),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade800),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade800),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.primaryGreen, width: 2),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: Colors.white),
+      bodyMedium: TextStyle(color: Colors.white),
+      bodySmall: TextStyle(color: Colors.white70),
+      titleLarge: TextStyle(color: Colors.white),
+      titleMedium: TextStyle(color: Colors.white),
+      titleSmall: TextStyle(color: Colors.white),
     ),
   );
 }
