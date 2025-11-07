@@ -42,10 +42,10 @@ dependencies:
   image_picker: ^1.1.2
 
   # NEW: Local Notifications
-  flutter_local_notifications: ^17.2.3
+  flutter_local_notifications: ^19.5.0
 
   # NEW: Timezone for notifications
-  timezone: ^0.9.4
+  timezone: ^0.10.0
 
   # NEW: Intl for formatting
   intl: ^0.19.0
