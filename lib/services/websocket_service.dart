@@ -10,6 +10,8 @@ class WebSocketService {
   final _connectionController = StreamController<bool>.broadcast();
   IO.Socket? _socket;
   final _tokenStorage = TokenStorageService();
+  Timer? _heartbeatTimer;
+  Timer? _reconnectTimer;
 
   final StreamController<Map<String, dynamic>> _sensorDataController =
   StreamController<Map<String, dynamic>>.broadcast();
@@ -27,6 +29,28 @@ class WebSocketService {
   Stream<bool> get connectionStream => _connectionController.stream;
 
   bool get isConnected => _socket?.connected ?? false;
+
+  // ✅ NEW: Start heartbeat to keep connection alive
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (timer) {
+      if (_socket != null && _socket!.connected) {
+        _socket!.emit('ping', {'timestamp': DateTime.now().toIso8601String()});
+        print('[WS] Heartbeat sent');
+      }
+    });
+  }
+
+  // ✅ NEW: Auto-reconnect if disconnected
+  void _startReconnectTimer() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (_socket == null || !_socket!.connected) {
+        print('[WS] Auto-reconnect triggered');
+        await connect();
+      }
+    });
+  }
 
   Future<void> joinDeviceRooms(List<String> deviceIds) async {
     if (!isConnected) {
@@ -48,14 +72,15 @@ class WebSocketService {
       return;
     }
 
+    // Disconnect existing socket if any
+    if (_socket != null) {
+      _socket!.disconnect();
+      _socket!.dispose();
+      _socket = null;
+    }
+
     try {
       final token = await _tokenStorage.getToken();
-
-      if (token != null) {
-        print('[WS] Token retrieved: YES (${token.substring(0, 20)}...)');
-      } else {
-        print('[WS] Token retrieved: NO');
-      }
 
       if (token == null) {
         print('[WS] ❌ No auth token found - CANNOT CONNECT');
@@ -70,21 +95,24 @@ class WebSocketService {
         'autoConnect': false,
         'auth': {'token': token},
         'reconnection': true,
-        'reconnectionAttempts': 5,
+        'reconnectionAttempts': 999,  // ✅ Increased
         'reconnectionDelay': 1000,
+        'reconnectionDelayMax': 5000,
+        'timeout': 20000,
       });
 
-      print('[WS] Socket created, calling connect()...');
       _socket!.connect();
 
       _socket!.onConnect((_) {
         print('[WS] ✅ Connected successfully');
         _connectionController.add(true);
+        _startHeartbeat();  // ✅ Start heartbeat
       });
 
       _socket!.onDisconnect((_) {
         print('[WS] ❌ Disconnected');
         _connectionController.add(false);
+        _heartbeatTimer?.cancel();
       });
 
       _socket!.onConnectError((data) {
@@ -94,6 +122,11 @@ class WebSocketService {
 
       _socket!.onError((data) {
         print('[WS] ❌ Error: $data');
+      });
+
+      // ✅ Add pong listener
+      _socket!.on('pong', (data) {
+        print('[WS] Pong received');
       });
 
       _socket!.on('sensor_update', (data) {
@@ -120,12 +153,19 @@ class WebSocketService {
         print('[WS] Command error: $data');
         _commandStatusController.add({'error': true, 'message': data['error']});
       });
+
+      // ✅ Start auto-reconnect timer
+      _startReconnectTimer();
+
     } catch (e) {
       print('[WS] Connection failed: $e');
+      _connectionController.add(false);
     }
   }
 
   void disconnect() {
+    _heartbeatTimer?.cancel();
+    _reconnectTimer?.cancel();
     if (_socket != null) {
       _socket!.disconnect();
       _socket!.dispose();
@@ -162,5 +202,6 @@ class WebSocketService {
     _sensorDataController.close();
     _deviceStatusController.close();
     _commandStatusController.close();
+    _connectionController.close();
   }
 }
